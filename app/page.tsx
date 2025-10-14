@@ -319,6 +319,21 @@ export default function Home() {
           </h1>
         </motion.div>
 
+        {/* Privacy Badge - Below header */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex justify-center mb-6"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border-2 border-green-500 dark:border-green-600 rounded-full shadow-sm">
+            <span className="text-lg">🔒</span>
+            <span className="text-sm font-bold text-green-700 dark:text-green-300">
+              100% 本地处理 · 零数据上传
+            </span>
+          </div>
+        </motion.div>
+
         {/* Main content */}
         <div className="space-y-4">
           {/* Image uploader */}
@@ -504,44 +519,35 @@ export default function Home() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="mt-8 mb-6 text-center space-y-4 w-full max-w-3xl mx-auto"
+        className="mt-8 mb-6 text-center space-y-2 w-full max-w-3xl mx-auto"
       >
-        {/* Privacy notice */}
-        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-2xl p-3 inline-block border border-gray-200 dark:border-slate-700 shadow-sm">
-          <p className="text-gray-700 dark:text-gray-300 font-bold text-xs md:text-sm">
-            🔒 所有处理均在本地完成，不会上传任何数据
-          </p>
-        </div>
-
         {/* Credits and Copyright */}
-        <div className="space-y-2">
-          <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
-            Made with ❤️ by{' '}
-            <a
-              href="https://github.com/BazingaOrg"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold transition-colors hover:underline"
-            >
-              @Bazinga
-            </a>
-          </p>
-          <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
-            <a
-              href="https://github.com/BazingaOrg/no-face"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold transition-colors hover:underline"
-            >
-              View Source
-            </a>
-            <span> · </span>
-            <span className="font-black">カオナシ</span>
-          </p>
-          <p className="text-gray-500 dark:text-gray-500 text-xs">
-            © 2025 All rights reserved.
-          </p>
-        </div>
+        <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+          Made with ❤️ by{' '}
+          <a
+            href="https://github.com/BazingaOrg"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold transition-colors hover:underline"
+          >
+            @Bazinga
+          </a>
+        </p>
+        <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+          <a
+            href="https://github.com/BazingaOrg/no-face"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold transition-colors hover:underline"
+          >
+            View Source
+          </a>
+          <span> · </span>
+          <span className="font-black">カオナシ</span>
+        </p>
+        <p className="text-gray-500 dark:text-gray-500 text-xs">
+          © 2025 All rights reserved.
+        </p>
       </motion.footer>
     </div>
   );

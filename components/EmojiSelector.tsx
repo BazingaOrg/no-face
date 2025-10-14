@@ -2,8 +2,6 @@
 
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
-import { searchEmojis } from '@/lib/emojiSearch';
 
 interface EmojiSelectorProps {
   onEmojiSelect: (emoji: string) => void;
@@ -34,38 +32,13 @@ export default function EmojiSelector({
   isOpen,
   onToggle,
 }: EmojiSelectorProps) {
-  const [chineseQuery, setChineseQuery] = useState('');
-  const [chineseSearchResults, setChineseSearchResults] = useState<string[]>([]);
-
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onEmojiSelect(emojiData.emoji);
-    setChineseQuery('');
-    setChineseSearchResults([]);
   };
 
   const handleRandomEmoji = () => {
     const randomEmoji = POPULAR_EMOJIS[Math.floor(Math.random() * POPULAR_EMOJIS.length)];
     onEmojiSelect(randomEmoji);
-  };
-
-  // Handle Chinese search
-  const handleChineseSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setChineseQuery(query);
-
-    if (query.trim()) {
-      const results = searchEmojis(query);
-      setChineseSearchResults(results);
-    } else {
-      setChineseSearchResults([]);
-    }
-  };
-
-  // Handle clicking search result emoji
-  const handleSearchResultClick = (emoji: string) => {
-    onEmojiSelect(emoji);
-    setChineseQuery('');
-    setChineseSearchResults([]);
   };
 
   return (
@@ -127,60 +100,12 @@ export default function EmojiSelector({
             className="overflow-hidden mt-4"
           >
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-3 border-4 border-purple-400 dark:border-purple-600">
-              {/* Chinese search input */}
-              <div className="mb-4">
-                <input
-                  type="text"
-                  value={chineseQuery}
-                  onChange={handleChineseSearch}
-                  placeholder="🔍 中文搜索表情（如：笑、哭、爱）"
-                  className="w-full px-4 py-2 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-purple-500 dark:focus:border-purple-400 font-bold"
-                />
-
-                {/* Chinese search results */}
-                {chineseSearchResults.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl max-h-32 overflow-y-auto"
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      {chineseSearchResults.slice(0, 50).map((emoji, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleSearchResultClick(emoji)}
-                          className="text-3xl hover:scale-125 transition-transform cursor-pointer"
-                          title={emoji}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                    {chineseSearchResults.length > 50 && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                        显示前 50 个结果，共 {chineseSearchResults.length} 个
-                      </p>
-                    )}
-                  </motion.div>
-                )}
-
-                {chineseQuery && chineseSearchResults.length === 0 && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center"
-                  >
-                    未找到匹配的表情
-                  </motion.p>
-                )}
-              </div>
-
               {/* Original emoji picker */}
               <EmojiPicker
                 onEmojiClick={handleEmojiClick}
                 theme={Theme.AUTO}
                 skinTonesDisabled
-                searchPlaceHolder="英文搜索..."
+                searchPlaceHolder="Search emojis..."
                 width="100%"
                 height={350}
                 previewConfig={{
