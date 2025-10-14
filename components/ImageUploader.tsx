@@ -103,7 +103,6 @@ export default function ImageUploader({ onImageLoad, disabled }: ImageUploaderPr
         <input
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={handleFileInput}
           disabled={disabled}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
