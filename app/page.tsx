@@ -566,22 +566,22 @@ export default function Home() {
             />
           </motion.div>
 
-          {/* Title and Privacy Badge Container */}
-          <div className="flex items-start justify-center gap-3 flex-wrap">
+          {/* Title with Privacy Badge */}
+          <div className="relative inline-block">
             {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight inline-block">
+            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight">
               カオナシ
             </h1>
 
-            {/* Privacy Badge - Top right of title */}
+            {/* Privacy Badge - Absolute positioned at top right */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-900/20 border-2 border-green-500 dark:border-green-600 rounded-full shadow-sm"
+              className="absolute -top-1 -right-16 md:-right-20 inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-500 dark:border-green-600 rounded-full shadow-sm"
             >
-              <span className="text-base">🔒</span>
-              <span className="text-xs font-semibold text-green-700 dark:text-green-300 whitespace-nowrap">
+              <span className="text-xs">🔒</span>
+              <span className="text-[10px] font-semibold text-green-700 dark:text-green-300 whitespace-nowrap">
                 本地处理
               </span>
             </motion.div>
