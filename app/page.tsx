@@ -161,7 +161,7 @@ export default function Home() {
       prev.map((r) => ({
         ...r,
         // Use each replacement's own emoji to generate URL (always SVG)
-        emojiUrl: getTwemojiUrl(r.emoji, emojiSettings),
+        emojiUrl: getTwemojiUrl(r.emoji),
         scale: emojiSettings.scale,
         opacity: emojiSettings.opacity,
         flipX: emojiSettings.flipX,
@@ -269,7 +269,7 @@ export default function Home() {
 
       try {
         // Preload emoji with fallback to native rendering
-        const result = await preloadEmojiWithFallback(selectedEmoji, emojiSettings);
+        const result = await preloadEmojiWithFallback(selectedEmoji);
 
         // Add or update replacement
         setReplacements((prev) => {

@@ -2,7 +2,6 @@
  * Twemoji utility functions
  */
 
-import { EmojiSettings } from '@/types';
 
 // Twemoji CDN base URL
 const TWEMOJI_CDN = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/';
@@ -73,10 +72,9 @@ export function preloadEmoji(url: string): Promise<HTMLImageElement> {
  * Returns the image URL if successful, or null to use native emoji
  */
 export async function preloadEmojiWithFallback(
-  emoji: string,
-  settings: EmojiSettings
+  emoji: string
 ): Promise<{ url: string; useNative: boolean }> {
-  const url = getTwemojiUrl(emoji, settings);
+  const url = getTwemojiUrl(emoji);
 
   try {
     await preloadEmoji(url);

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DetectedFace, EmojiReplacement } from '@/types';
 import { motion } from 'framer-motion';
-import { calculateEmojiSize } from '@/lib/emojiRenderUtils';
+import { calculateEmojiSize, applyUserOffsets } from '@/lib/emojiRenderUtils';
 
 interface FaceCanvasProps {
   image: HTMLImageElement | null;

@@ -32,6 +32,8 @@ export interface EmojiReplacement {
   opacity?: number;
   flipX?: boolean;
   flipY?: boolean;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 // Face detection settings
