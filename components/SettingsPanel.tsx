@@ -73,12 +73,15 @@ export default function SettingsPanel({
               </label>
               <select
                 value={detectionSettings.detector}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newDetector = e.target.value as 'ssd_mobilenetv1' | 'tiny_face_detector';
                   onDetectionChange({
                     ...detectionSettings,
-                    detector: e.target.value as 'ssd_mobilenetv1' | 'tiny_face_detector',
-                  })
-                }
+                    detector: newDetector,
+                    // Auto-set inputSize to 416 (balanced mode) when switching to Tiny Face Detector
+                    ...(newDetector === 'tiny_face_detector' && { inputSize: 416 }),
+                  });
+                }}
                 className="w-full px-4 py-3 text-base md:text-sm border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold shadow-sm appearance-none cursor-pointer transition-all"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
@@ -146,40 +149,8 @@ export default function SettingsPanel({
               </div>
             </div>
 
-            {/* Performance Mode (only for Tiny Face Detector) */}
-            {detectionSettings.detector === 'tiny_face_detector' && (
-              <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border-2 border-blue-200 dark:border-blue-800">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  性能模式
-                </label>
-                <select
-                  value={detectionSettings.inputSize || 416}
-                  onChange={(e) =>
-                    onDetectionChange({
-                      ...detectionSettings,
-                      inputSize: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full px-4 py-3 text-base md:text-sm border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold shadow-sm appearance-none cursor-pointer transition-all"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                    backgroundPosition: 'right 0.5rem center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '1.5em 1.5em',
-                    paddingRight: '2.5rem',
-                  }}
-                >
-                  <option value="224" className="text-base md:text-sm font-bold py-2">🚀 极速模式</option>
-                  <option value="416" className="text-base md:text-sm font-bold py-2">⚡ 平衡模式（推荐）</option>
-                  <option value="608" className="text-base md:text-sm font-bold py-2">🎯 精准模式</option>
-                </select>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 font-medium">
-                  {detectionSettings.inputSize === 224 && '最快速度，可能漏检小脸'}
-                  {(detectionSettings.inputSize === 416 || !detectionSettings.inputSize) && '速度与精度平衡，适合大多数场景'}
-                  {detectionSettings.inputSize === 608 && '最高精度，处理时间较长'}
-                </p>
-              </div>
-            )}
+            {/* Performance Mode - Hidden, defaults to 416 (balanced mode) */}
+            {/* Auto-set inputSize to 416 when switching to Tiny Face Detector */}
           </div>
 
           {/* Divider */}
