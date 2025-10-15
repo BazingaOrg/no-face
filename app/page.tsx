@@ -555,15 +555,19 @@ export default function Home() {
           <motion.div
             animate={{ rotate: [0, -10, 10, -10, 0] }}
             transition={{ duration: 0.5, delay: 0.2 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.98 }}
             className="inline-block mb-2"
           >
-            <NextImage
-              src="/kaonashi.jpg"
-              alt="カオナシ"
-              width={80}
-              height={80}
-              className="w-16 h-16 md:w-20 md:h-20 object-contain rounded-xl"
-            />
+            <div className="relative bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-lg hover:shadow-xl transition-shadow border-b-4 border-gray-200 dark:border-slate-700">
+              <NextImage
+                src="/kaonashi.jpg"
+                alt="カオナシ"
+                width={80}
+                height={80}
+                className="w-16 h-16 md:w-20 md:h-20 object-contain rounded-xl"
+              />
+            </div>
           </motion.div>
 
           {/* Title with Privacy Badge */}
