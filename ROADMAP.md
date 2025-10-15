@@ -316,4 +316,6 @@ This project welcomes contributions! See GitHub issues for open tasks.
 - ✅ 完成模型加载进度 UI（Duolingo 风格弹窗 + 动画）
 - ✅ 完成大图片自动优化（1920px 压缩 + 坐标映射）
 - ✅ 添加处理进度提示（智能消息 + 友好提示）
+- ✅ 实现渐进式模型加载策略（首次 SSD，后台 Tiny，按需 Landmarks）
+- ✅ 优化 UI 反馈，移除重复的状态提示
 - ⚠️ Web Worker 方案推迟（face-api.js 需要 DOM 环境）

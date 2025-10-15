@@ -9,6 +9,7 @@ import EmojiSelector from '@/components/EmojiSelector';
 import SettingsPanel from '@/components/SettingsPanel';
 import ModelLoadingModal from '@/components/ModelLoadingModal';
 import ProcessingOverlay from '@/components/ProcessingOverlay';
+import Toast from '@/components/Toast';
 import { 
   DetectedFace, 
   EmojiReplacement, 
@@ -19,7 +20,9 @@ import {
 import { 
   detectFacesWithLandmarks, 
   areLandmarksAvailable,
-  loadModels,
+  loadSSDModel,
+  loadTinyModel,
+  isModelLoaded,
   setModelLoadingProgressCallback
 } from '@/lib/faceApi';
 import { getTwemojiUrl, preloadEmojiWithFallback } from '@/lib/twemoji';
@@ -55,6 +58,10 @@ export default function Home() {
   // Processing message for large images
   const [processingMessage, setProcessingMessage] = useState<string>('');
 
+  // Toast notification state
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const [isToastVisible, setIsToastVisible] = useState(false);
+
   // Settings (now mutable)
   const [detectionSettings, setDetectionSettings] = useState<DetectionSettings>({
     detector: 'ssd_mobilenetv1',
@@ -71,7 +78,7 @@ export default function Home() {
     flipY: false,
   });
 
-  // Load models on mount
+  // Load models progressively on mount
   useEffect(() => {
     const initModels = async () => {
       try {
@@ -81,22 +88,33 @@ export default function Home() {
             isLoading: true,
             progress: progress.percentage,
             currentModel: progress.model,
-            loadedModels: Array.from({ length: progress.loaded }, (_, i) => 
-              ['ssdMobilenetv1', 'tinyFaceDetector', 'faceLandmark68Net'][i]
-            ),
+            loadedModels: progress.loaded > 0 ? ['ssdMobilenetv1'] : [],
           });
         });
 
-        // Load models
-        await loadModels();
+        // Stage 1: Load default detector (SSD) - blocking with progress UI
+        await loadSSDModel();
 
-        // Mark as complete
+        // Mark first stage complete
         setModelLoadingState({
           isLoading: false,
           progress: 100,
           currentModel: '',
-          loadedModels: ['ssdMobilenetv1', 'tinyFaceDetector', 'faceLandmark68Net'],
+          loadedModels: ['ssdMobilenetv1'],
         });
+
+        // Stage 2: Load Tiny Face Detector in background (silent, non-blocking)
+        // This ensures smooth switching without wait time
+        setTimeout(async () => {
+          try {
+            await loadTinyModel(true); // Silent load
+            console.log('✅ Tiny Face Detector 已在后台加载完成');
+          } catch (error) {
+            console.warn('⚠️ Tiny Face Detector 后台加载失败:', error);
+          }
+        }, 500); // Small delay to let UI settle
+
+        // Stage 3: Face Landmarks 68 will be loaded on-demand when needed (Phase 2 feature)
       } catch (error) {
         console.error('模型加载失败:', error);
         setModelLoadingState((prev) => ({
@@ -109,6 +127,32 @@ export default function Home() {
 
     initModels();
   }, []);
+
+  // Handle detector change - load model if needed
+  useEffect(() => {
+    const handleDetectorChange = async () => {
+      const detector = detectionSettings.detector;
+      
+      // Check if model is loaded
+      if (detector === 'tiny_face_detector' && !isModelLoaded('tinyFaceDetector')) {
+        // Show toast notification
+        setToastMessage('正在加载 Tiny Face Detector...');
+        setIsToastVisible(true);
+        
+        try {
+          await loadTinyModel(false); // Load with progress
+          setToastMessage('✅ 检测器已就绪');
+          setIsToastVisible(true);
+        } catch (error) {
+          console.error('检测器加载失败:', error);
+          setToastMessage('❌ 检测器加载失败');
+          setIsToastVisible(true);
+        }
+      }
+    };
+
+    handleDetectorChange();
+  }, [detectionSettings.detector]);
 
   // Auto-apply emoji settings when they change
   // Only update styles (scale, opacity, offset), not the emoji itself
@@ -489,6 +533,13 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      {/* Toast Notification */}
+      <Toast 
+        message={toastMessage}
+        isVisible={isToastVisible}
+        onClose={() => setIsToastVisible(false)}
+      />
+
       <div className="max-w-3xl mx-auto flex-1 w-full">
         {/* Header - Duolingo Style */}
         <motion.div
@@ -534,19 +585,6 @@ export default function Home() {
           {/* Image uploader */}
           {!image && (
             <ImageUploader onImageLoad={handleImageLoad} disabled={isProcessing} />
-          )}
-
-          {/* Status message - Processing */}
-          {image && isProcessing && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-5 text-center"
-            >
-              <div className="inline-block animate-bounce text-4xl mb-2">🔍</div>
-              <p className="text-xl font-black text-gray-800 dark:text-gray-100">正在检测人脸...</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">请稍候</p>
-            </motion.div>
           )}
 
           {/* Canvas preview */}
