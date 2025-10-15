@@ -123,7 +123,7 @@ export default function ImageUploader({ onImageLoad, disabled }: ImageUploaderPr
               点击选择或拖拽图片到此处
             </p>
             <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
-              支持 JPG、PNG、WEBP 格式（最大 20MB）
+              支持 JPG、PNG、WEBP 格式（最大 <span className="numeric-display">20MB</span>）
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 font-medium">
               📱 移动设备可直接调用相机或相册

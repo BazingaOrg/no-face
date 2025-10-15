@@ -97,7 +97,7 @@ export default function SettingsPanel({
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   检测灵敏度
                 </label>
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg">
+                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg numeric-display">
                   {detectionSettings.detector === 'ssd_mobilenetv1'
                     ? detectionSettings.minConfidence?.toFixed(2)
                     : (detectionSettings.scoreThreshold || 0.5).toFixed(2)}
@@ -231,7 +231,7 @@ export default function SettingsPanel({
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   表情大小
                 </label>
-                <span className="text-sm font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2.5 py-1 rounded-lg">
+                <span className="text-sm font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2.5 py-1 rounded-lg numeric-display">
                   {Math.round(emojiSettings.scale * 100)}%
                 </span>
               </div>
@@ -261,7 +261,7 @@ export default function SettingsPanel({
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   透明度
                 </label>
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg">
+                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg numeric-display">
                   {Math.round(emojiSettings.opacity * 100)}%
                 </span>
               </div>
@@ -295,7 +295,7 @@ export default function SettingsPanel({
               <div className="mb-3">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">左右移动</span>
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">
+                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded numeric-display">
                     {emojiSettings.offsetX > 0 ? '+' : ''}{emojiSettings.offsetX}
                   </span>
                 </div>
@@ -323,7 +323,7 @@ export default function SettingsPanel({
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">上下移动</span>
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">
+                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded numeric-display">
                     {emojiSettings.offsetY > 0 ? '+' : ''}{emojiSettings.offsetY}
                   </span>
                 </div>

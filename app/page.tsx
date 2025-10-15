@@ -285,7 +285,17 @@ export default function Home() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `no-face-${Date.now()}.png`;
+
+        // Generate timestamp in YYYY-MM-DD_HH-MM-SS format
+        const now = new Date();
+        const timestamp = now.getFullYear() +
+          '-' + String(now.getMonth() + 1).padStart(2, '0') +
+          '-' + String(now.getDate()).padStart(2, '0') +
+          '_' + String(now.getHours()).padStart(2, '0') +
+          '-' + String(now.getMinutes()).padStart(2, '0') +
+          '-' + String(now.getSeconds()).padStart(2, '0');
+
+        a.download = `no-face-${timestamp}.png`;
         a.click();
         URL.revokeObjectURL(url);
       }, 'image/png');
@@ -329,7 +339,7 @@ export default function Home() {
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border-2 border-green-500 dark:border-green-600 rounded-full shadow-sm">
             <span className="text-lg">🔒</span>
             <span className="text-sm font-bold text-green-700 dark:text-green-300">
-              100% 本地处理 · 零数据上传
+              <span className="numeric-display">100%</span> 本地处理 · 零数据上传
             </span>
           </div>
         </motion.div>
@@ -391,7 +401,7 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-sm p-3 text-center border-2 border-green-400 dark:border-green-500"
             >
-              <span className="text-lg font-bold text-gray-800 dark:text-gray-100">
+              <span className="text-lg font-bold text-gray-800 dark:text-gray-100 numeric-display">
                 ✓ 检测到 {faces.length} 张人脸
               </span>
 
@@ -450,7 +460,7 @@ export default function Home() {
                 onClick={handleApplyToAll}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 md:px-6 md:py-3 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-2xl font-black text-sm md:text-base shadow-lg transition-all border-b-4 border-green-600 active:border-b-0 active:mt-1"
+                className="px-4 py-2 md:px-6 md:py-3 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-2xl font-black text-sm md:text-base shadow-lg transition-all border-b-4 border-green-600 active:border-b-0 active:mt-1 numeric-display"
               >
                 全部替换 ({faces.length})
               </motion.button>
