@@ -1,20 +1,40 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import NextImage from 'next/image';
 import ImageUploader from '@/components/ImageUploader';
 import FaceCanvas from '@/components/FaceCanvas';
 import EmojiSelector from '@/components/EmojiSelector';
 import SettingsPanel from '@/components/SettingsPanel';
-import { DetectedFace, EmojiReplacement, DetectionSettings, EmojiSettings } from '@/types';
-import { detectFaces, detectFacesWithLandmarks, areLandmarksAvailable } from '@/lib/faceApi';
+import ModelLoadingModal from '@/components/ModelLoadingModal';
+import ProcessingOverlay from '@/components/ProcessingOverlay';
+import { 
+  DetectedFace, 
+  EmojiReplacement, 
+  DetectionSettings, 
+  EmojiSettings,
+  ModelLoadingState 
+} from '@/types';
+import { 
+  detectFacesWithLandmarks, 
+  areLandmarksAvailable,
+  loadModels,
+  setModelLoadingProgressCallback
+} from '@/lib/faceApi';
 import { getTwemojiUrl, preloadEmojiWithFallback } from '@/lib/twemoji';
 import { calculateEmojiSize, applyUserOffsets } from '@/lib/emojiRenderUtils';
+import { 
+  optimizeImageForDetection, 
+  mapCoordinatesToOriginal,
+  getImageSizeCategory,
+  type OptimizedImage
+} from '@/utils/imageOptimization';
 
 export default function Home() {
   // State management
   const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [optimizedImage, setOptimizedImage] = useState<OptimizedImage | null>(null);
   const [faces, setFaces] = useState<DetectedFace[]>([]);
   const [replacements, setReplacements] = useState<EmojiReplacement[]>([]);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
@@ -23,6 +43,17 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLandmarks, setHasLandmarks] = useState(false);
+  
+  // Model loading state
+  const [modelLoadingState, setModelLoadingState] = useState<ModelLoadingState>({
+    isLoading: true,
+    progress: 0,
+    currentModel: '',
+    loadedModels: [],
+  });
+
+  // Processing message for large images
+  const [processingMessage, setProcessingMessage] = useState<string>('');
 
   // Settings (now mutable)
   const [detectionSettings, setDetectionSettings] = useState<DetectionSettings>({
@@ -39,6 +70,45 @@ export default function Home() {
     flipX: false,
     flipY: false,
   });
+
+  // Load models on mount
+  useEffect(() => {
+    const initModels = async () => {
+      try {
+        // Set up progress callback
+        setModelLoadingProgressCallback((progress) => {
+          setModelLoadingState({
+            isLoading: true,
+            progress: progress.percentage,
+            currentModel: progress.model,
+            loadedModels: Array.from({ length: progress.loaded }, (_, i) => 
+              ['ssdMobilenetv1', 'tinyFaceDetector', 'faceLandmark68Net'][i]
+            ),
+          });
+        });
+
+        // Load models
+        await loadModels();
+
+        // Mark as complete
+        setModelLoadingState({
+          isLoading: false,
+          progress: 100,
+          currentModel: '',
+          loadedModels: ['ssdMobilenetv1', 'tinyFaceDetector', 'faceLandmark68Net'],
+        });
+      } catch (error) {
+        console.error('模型加载失败:', error);
+        setModelLoadingState((prev) => ({
+          ...prev,
+          isLoading: false,
+        }));
+        setError('模型加载失败，请刷新页面重试');
+      }
+    };
+
+    initModels();
+  }, []);
 
   // Auto-apply emoji settings when they change
   // Only update styles (scale, opacity, offset), not the emoji itself
@@ -63,7 +133,7 @@ export default function Home() {
 
   // Handle image upload
   const handleImageLoad = useCallback(
-    async (img: HTMLImageElement) => {
+    async (img: HTMLImageElement, fileSize?: number) => {
       setImage(img);
       setFaces([]);
       setReplacements([]);
@@ -71,22 +141,65 @@ export default function Home() {
       setIsProcessing(true);
 
       try {
-        // Detect faces with landmarks if available
-        const detectedFaces = await detectFacesWithLandmarks(img, detectionSettings);
+        // Determine processing message based on file size
+        const sizeCategory = fileSize ? getImageSizeCategory(fileSize) : 'small';
+        if (sizeCategory === 'large') {
+          setProcessingMessage('正在优化大图片...');
+        } else if (sizeCategory === 'medium') {
+          setProcessingMessage('正在处理图片...');
+        } else {
+          setProcessingMessage('正在检测人脸...');
+        }
+
+        // Optimize image for detection if needed
+        let imageToDetect: HTMLImageElement | HTMLCanvasElement = img;
+        let scale = 1;
+
+        if (img.naturalWidth > 1920) {
+          setProcessingMessage('正在优化图片以加快处理速度...');
+          
+          // Add small delay to let UI update
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const optimized = await optimizeImageForDetection(img, 1920);
+          setOptimizedImage(optimized);
+          imageToDetect = optimized.optimizedCanvas;
+          scale = optimized.scale;
+        } else {
+          setOptimizedImage(null);
+        }
+
+        setProcessingMessage('正在检测人脸...');
         
+        // Add small delay to let UI update
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Detect faces with landmarks if available
+        const detectedFaces = await detectFacesWithLandmarks(imageToDetect, detectionSettings);
+        
+        // Map coordinates back to original image if scaled
+        const mappedFaces = scale < 1
+          ? detectedFaces.map(face => ({
+              ...face,
+              box: mapCoordinatesToOriginal(face.box, scale),
+            }))
+          : detectedFaces;
+
         // Check if landmarks are available
         const landmarksAvailable = areLandmarksAvailable();
         setHasLandmarks(landmarksAvailable);
 
-        if (detectedFaces.length === 0) {
+        if (mappedFaces.length === 0) {
           setError('未检测到人脸，请尝试更换图片');
         } else {
-          setFaces(detectedFaces);
+          setFaces(mappedFaces);
         }
-      } catch {
+      } catch (error) {
+        console.error('人脸检测失败:', error);
         setError('检测失败，请重试或检查网络连接');
       } finally {
         setIsProcessing(false);
+        setProcessingMessage('');
       }
     },
     [detectionSettings]
@@ -171,25 +284,43 @@ export default function Home() {
     setReplacements([]);
     setError(null);
     setIsProcessing(true);
+    setProcessingMessage('正在重新检测人脸...');
 
     try {
-      const detectedFaces = await detectFacesWithLandmarks(image, detectionSettings);
+      // Use optimized image if available
+      const imageToDetect = optimizedImage?.optimizedCanvas || image;
+      const scale = optimizedImage?.scale || 1;
+
+      // Add small delay to let UI update
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const detectedFaces = await detectFacesWithLandmarks(imageToDetect, detectionSettings);
+      
+      // Map coordinates back to original image if scaled
+      const mappedFaces = scale < 1
+        ? detectedFaces.map(face => ({
+            ...face,
+            box: mapCoordinatesToOriginal(face.box, scale),
+          }))
+        : detectedFaces;
       
       // Check if landmarks are available
       const landmarksAvailable = areLandmarksAvailable();
       setHasLandmarks(landmarksAvailable);
 
-      if (detectedFaces.length === 0) {
+      if (mappedFaces.length === 0) {
         setError('未检测到人脸，尝试调整灵敏度？');
       } else {
-        setFaces(detectedFaces);
+        setFaces(mappedFaces);
       }
-    } catch {
+    } catch (error) {
+      console.error('重新检测失败:', error);
       setError('检测失败，请重试或检查网络连接');
     } finally {
       setIsProcessing(false);
+      setProcessingMessage('');
     }
-  }, [image, detectionSettings]);
+  }, [image, optimizedImage, detectionSettings]);
 
 
   // Export image
@@ -341,6 +472,23 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-6 px-4 flex flex-col">
+      {/* Model Loading Modal */}
+      <ModelLoadingModal state={modelLoadingState} />
+
+      {/* Processing Overlay */}
+      <AnimatePresence>
+        {isProcessing && processingMessage && (
+          <ProcessingOverlay
+            message={processingMessage}
+            hint={
+              processingMessage.includes('优化')
+                ? '大图片自动压缩中，导出时保持原始质量'
+                : '请稍候，正在分析图片内容...'
+            }
+          />
+        )}
+      </AnimatePresence>
+
       <div className="max-w-3xl mx-auto flex-1 w-full">
         {/* Header - Duolingo Style */}
         <motion.div

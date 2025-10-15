@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface ImageUploaderProps {
-  onImageLoad: (image: HTMLImageElement) => void;
+  onImageLoad: (image: HTMLImageElement, fileSize?: number) => void;
   disabled?: boolean;
 }
 
@@ -31,7 +31,7 @@ export default function ImageUploader({ onImageLoad, disabled }: ImageUploaderPr
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          onImageLoad(img);
+          onImageLoad(img, file.size);
         };
         img.onerror = () => {
           alert('图片加载失败，请尝试其他图片');

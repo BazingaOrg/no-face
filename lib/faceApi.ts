@@ -4,7 +4,7 @@
  */
 
 import type * as FaceApiType from '@vladmandic/face-api';
-import { DetectedFace, DetectionSettings } from '@/types';
+import { DetectedFace, DetectionSettings, ModelLoadingProgressCallback } from '@/types';
 
 // Lazy import face-api only in browser
 let faceapi: typeof FaceApiType | null = null;
@@ -17,6 +17,13 @@ async function getFaceApi() {
     faceapi = await import('@vladmandic/face-api');
   }
   return faceapi;
+}
+
+// Progress callback reference
+let progressCallback: ModelLoadingProgressCallback | null = null;
+
+export function setModelLoadingProgressCallback(callback: ModelLoadingProgressCallback | null) {
+  progressCallback = callback;
 }
 
 // Model CDN URL - using multiple fallbacks
@@ -32,7 +39,7 @@ let isModelsLoaded = false;
 let areLandmarksLoaded = false;
 
 /**
- * Load face detection models
+ * Load face detection models with progress tracking
  */
 export async function loadModels(): Promise<void> {
   if (isModelsLoaded) return;
@@ -40,24 +47,54 @@ export async function loadModels(): Promise<void> {
   const api = await getFaceApi();
 
   try {
-    // Load core detection models (required)
-    await Promise.all([
-      api.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-      api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-    ]);
+    const loadedModels: string[] = [];
+    let currentProgress = 0;
+    const totalModels = 3; // ssd, tiny, landmarks
+    
+    // Helper to report progress
+    const reportProgress = (modelName: string, percentage: number) => {
+      if (progressCallback) {
+        progressCallback({
+          model: modelName,
+          loaded: loadedModels.length,
+          total: totalModels,
+          percentage,
+        });
+      }
+    };
+
+    // Load SSD MobileNet V1 (primary detector)
+    reportProgress('ssdMobilenetv1', 0);
+    await api.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+    loadedModels.push('ssdMobilenetv1');
+    currentProgress = (loadedModels.length / totalModels) * 100;
+    reportProgress('ssdMobilenetv1', currentProgress);
+
+    // Load Tiny Face Detector
+    reportProgress('tinyFaceDetector', currentProgress);
+    await api.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    loadedModels.push('tinyFaceDetector');
+    currentProgress = (loadedModels.length / totalModels) * 100;
+    reportProgress('tinyFaceDetector', currentProgress);
 
     isModelsLoaded = true;
 
     // Try to load landmarks model (optional, for advanced features)
     try {
+      reportProgress('faceLandmark68Net', currentProgress);
       await api.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+      loadedModels.push('faceLandmark68Net');
       areLandmarksLoaded = true;
+      reportProgress('faceLandmark68Net', 100);
       console.log('✅ Face Landmarks 68 模型加载成功');
     } catch (error) {
       console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
       areLandmarksLoaded = false;
+      loadedModels.push('faceLandmark68Net'); // Mark as attempted
+      reportProgress('faceLandmark68Net', 100);
     }
-  } catch {
+  } catch (error) {
+    console.error('模型加载失败:', error);
     throw new Error('Failed to load face detection models');
   }
 }
