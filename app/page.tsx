@@ -549,42 +549,44 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-6 relative"
+          className="text-center mb-6"
         >
-          {/* Logo */}
-          <motion.div
-            animate={{ rotate: [0, -10, 10, -10, 0] }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="inline-block mb-2"
-          >
-            <NextImage
-              src="/kaonashi.jpg"
-              alt="カオナシ"
-              width={80}
-              height={80}
-              className="w-16 h-16 md:w-20 md:h-20 object-contain rounded-xl"
-            />
-          </motion.div>
-
-          {/* Title with Privacy Badge */}
-          <div className="relative inline-block">
-            {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight">
-              カオナシ
-            </h1>
-
-            {/* Privacy Badge - Absolute positioned at top right */}
+          {/* Logo and Title Container - Flex for alignment */}
+          <div className="flex items-center justify-center gap-3 mb-2">
+            {/* Logo */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-              className="absolute -top-1 -right-16 md:-right-20 inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-500 dark:border-green-600 rounded-full shadow-sm"
+              animate={{ rotate: [0, -10, 10, -10, 0] }}
+              transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <span className="text-xs">🔒</span>
-              <span className="text-[10px] font-semibold text-green-700 dark:text-green-300 whitespace-nowrap">
-                本地处理
-              </span>
+              <NextImage
+                src="/kaonashi.jpg"
+                alt="カオナシ"
+                width={80}
+                height={80}
+                className="w-16 h-16 md:w-20 md:h-20 object-contain rounded-xl"
+              />
             </motion.div>
+
+            {/* Title with Privacy Badge */}
+            <div className="relative">
+              {/* Title */}
+              <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight pr-14 md:pr-16">
+                カオナシ
+              </h1>
+
+              {/* Privacy Badge - Absolute positioned at top right */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 }}
+                className="absolute top-0 right-0 inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-500 dark:border-green-600 rounded-full shadow-sm"
+              >
+                <span className="text-xs">🔒</span>
+                <span className="text-[10px] font-semibold text-green-700 dark:text-green-300 whitespace-nowrap">
+                  本地处理
+                </span>
+              </motion.div>
+            </div>
           </div>
         </motion.div>
 
