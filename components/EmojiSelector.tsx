@@ -134,7 +134,7 @@ export default function EmojiSelector({
           ) : replacedCount === 0 ? (
             '👆 点击人脸应用表情，或点击全部替换'
           ) : replacedCount === totalFaces ? (
-            '✨ 已全部替换，可单独调整或重新选择表情'
+            '✨ 可单独调整人脸，或重新随机选择'
           ) : (
             `👆 继续点击其他人脸 (${replacedCount}/${totalFaces})`
           )}
