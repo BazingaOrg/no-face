@@ -549,7 +549,7 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-6"
+          className="text-center mb-6 flex flex-col items-center justify-center"
         >
           {/* Logo */}
           <motion.div
@@ -569,7 +569,7 @@ export default function Home() {
           {/* Title with Privacy Badge */}
           <div className="relative inline-block">
             {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight pr-14 md:pr-16">
+            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight">
               カオナシ
             </h1>
 
@@ -578,7 +578,7 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
-              className="absolute top-0 right-0 inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-500 dark:border-green-600 rounded-full shadow-sm"
+              className="absolute -top-0 -right-20 -translate-y-1/2 inline-flex items-center justify-center gap-1 px-3 py-1 bg-green-50 dark:bg-green-900/20 border border-green-500 dark:border-green-600 rounded-full shadow-sm"
             >
               <span className="text-xs">🔒</span>
               <span className="text-[10px] font-semibold text-green-700 dark:text-green-300 whitespace-nowrap">
