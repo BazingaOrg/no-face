@@ -9,16 +9,14 @@ const TWEMOJI_CDN = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/'
 
 /**
  * Get twemoji image URL for a given emoji character
+ * Always returns SVG format for best quality
  */
-export function getTwemojiUrl(emoji: string, settings: EmojiSettings): string {
+export function getTwemojiUrl(emoji: string, settings?: EmojiSettings | { format?: 'svg' | 'png'; size?: string }): string {
   // Convert emoji to unicode codepoint
   const codepoint = getEmojiCodepoint(emoji);
 
-  // Construct URL based on format
-  const folder = settings.format === 'svg' ? 'svg' : settings.size;
-  const ext = settings.format === 'svg' ? '.svg' : '.png';
-
-  return `${TWEMOJI_CDN}${folder}/${codepoint}${ext}`;
+  // Always use SVG format for best quality
+  return `${TWEMOJI_CDN}svg/${codepoint}.svg`;
 }
 
 /**

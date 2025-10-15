@@ -139,11 +139,11 @@ export default function SettingsPanel({
               </div>
             </div>
 
-            {/* Input Size (only for Tiny Face Detector) */}
+            {/* Performance Mode (only for Tiny Face Detector) */}
             {detectionSettings.detector === 'tiny_face_detector' && (
               <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  输入尺寸
+                  性能模式
                 </label>
                 <select
                   value={detectionSettings.inputSize || 416}
@@ -155,15 +155,14 @@ export default function SettingsPanel({
                   }
                   className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 font-medium text-gray-800 transition-all"
                 >
-                  <option value="160">160（最快）</option>
-                  <option value="224">224</option>
-                  <option value="320">320</option>
-                  <option value="416">416（平衡）</option>
-                  <option value="512">512</option>
-                  <option value="608">608（最准）</option>
+                  <option value="224">🚀 极速模式</option>
+                  <option value="416">⚡ 平衡模式（推荐）</option>
+                  <option value="608">🎯 精准模式</option>
                 </select>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 font-medium">
-                  尺寸越大检测越准确，但处理速度会降低
+                  {detectionSettings.inputSize === 224 && '最快速度，可能漏检小脸'}
+                  {(detectionSettings.inputSize === 416 || !detectionSettings.inputSize) && '速度与精度平衡，适合大多数场景'}
+                  {detectionSettings.inputSize === 608 && '最高精度，处理时间较长'}
                 </p>
               </div>
             )}
@@ -185,58 +184,6 @@ export default function SettingsPanel({
               )}
             </div>
 
-            {/* Emoji Format */}
-            <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                格式
-              </label>
-              <div className="flex gap-3">
-                <label className="flex-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="svg"
-                    checked={emojiSettings.format === 'svg'}
-                    onChange={(e) =>
-                      onEmojiChange({
-                        ...emojiSettings,
-                        format: e.target.value as 'svg' | 'png',
-                      })
-                    }
-                    className="hidden"
-                    disabled={hasImage && !hasReplacements}
-                  />
-                  <div className={`p-3 rounded-lg text-center font-medium transition-all ${
-                    emojiSettings.format === 'svg'
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
-                  }`}>
-                    ✨ SVG（高清）
-                  </div>
-                </label>
-                <label className="flex-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="png"
-                    checked={emojiSettings.format === 'png'}
-                    onChange={(e) =>
-                      onEmojiChange({
-                        ...emojiSettings,
-                        format: e.target.value as 'svg' | 'png',
-                      })
-                    }
-                    className="hidden"
-                    disabled={hasImage && !hasReplacements}
-                  />
-                  <div className={`p-3 rounded-lg text-center font-medium transition-all ${
-                    emojiSettings.format === 'png'
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
-                  }`}>
-                    🖼️ PNG
-                  </div>
-                </label>
-              </div>
-            </div>
 
             {/* Emoji Scale */}
             <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
@@ -297,6 +244,51 @@ export default function SettingsPanel({
               <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
                 <span>👻 半透明</span>
                 <span>💯 不透明</span>
+              </div>
+            </div>
+
+            {/* Flip Controls */}
+            <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                🪞 翻转
+              </label>
+              <div className="flex gap-3">
+                <motion.button
+                  onClick={() =>
+                    onEmojiChange({
+                      ...emojiSettings,
+                      flipX: !emojiSettings.flipX,
+                    })
+                  }
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={hasImage && !hasReplacements}
+                  className={`flex-1 py-3 px-4 rounded-lg text-center font-bold transition-all ${
+                    emojiSettings.flipX
+                      ? 'bg-gradient-to-r from-teal-400 to-teal-500 text-white shadow-md border-b-4 border-teal-600'
+                      : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 border-b-4 border-gray-300 dark:border-slate-600'
+                  }`}
+                >
+                  ⬌ 水平翻转
+                </motion.button>
+                <motion.button
+                  onClick={() =>
+                    onEmojiChange({
+                      ...emojiSettings,
+                      flipY: !emojiSettings.flipY,
+                    })
+                  }
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={hasImage && !hasReplacements}
+                  className={`flex-1 py-3 px-4 rounded-lg text-center font-bold transition-all ${
+                    emojiSettings.flipY
+                      ? 'bg-gradient-to-r from-teal-400 to-teal-500 text-white shadow-md border-b-4 border-teal-600'
+                      : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 border-b-4 border-gray-300 dark:border-slate-600'
+                  }`}
+                >
+                  ⬍ 垂直翻转
+                </motion.button>
               </div>
             </div>
 
@@ -375,12 +367,13 @@ export default function SettingsPanel({
                   minConfidence: 0.5,
                 });
                 onEmojiChange({
-                  format: 'svg',
                   size: '72x72',
                   scale: 1.2,
                   opacity: 1.0,
                   offsetX: 0,
                   offsetY: 0,
+                  flipX: false,
+                  flipY: false,
                 });
               }}
               whileHover={{ scale: 1.02 }}

@@ -8,7 +8,7 @@ import FaceCanvas from '@/components/FaceCanvas';
 import EmojiSelector from '@/components/EmojiSelector';
 import SettingsPanel from '@/components/SettingsPanel';
 import { DetectedFace, EmojiReplacement, DetectionSettings, EmojiSettings } from '@/types';
-import { detectFaces } from '@/lib/faceApi';
+import { detectFaces, detectFacesWithLandmarks, areLandmarksAvailable } from '@/lib/faceApi';
 import { getTwemojiUrl, preloadEmojiWithFallback } from '@/lib/twemoji';
 import { calculateEmojiSize, applyUserOffsets } from '@/lib/emojiRenderUtils';
 
@@ -22,6 +22,7 @@ export default function Home() {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasLandmarks, setHasLandmarks] = useState(false);
 
   // Settings (now mutable)
   const [detectionSettings, setDetectionSettings] = useState<DetectionSettings>({
@@ -30,12 +31,13 @@ export default function Home() {
   });
 
   const [emojiSettings, setEmojiSettings] = useState<EmojiSettings>({
-    format: 'svg',
     size: '72x72',
     scale: 1.2,
     opacity: 1.0,
     offsetX: 0,
     offsetY: 0,
+    flipX: false,
+    flipY: false,
   });
 
   // Auto-apply emoji settings when they change
@@ -46,12 +48,14 @@ export default function Home() {
     setReplacements((prev) =>
       prev.map((r) => ({
         ...r,
-        // Use each replacement's own emoji to generate URL
+        // Use each replacement's own emoji to generate URL (always SVG)
         emojiUrl: getTwemojiUrl(r.emoji, emojiSettings),
         scale: emojiSettings.scale,
         opacity: emojiSettings.opacity,
         offsetX: emojiSettings.offsetX,
         offsetY: emojiSettings.offsetY,
+        flipX: emojiSettings.flipX,
+        flipY: emojiSettings.flipY,
       }))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,8 +71,12 @@ export default function Home() {
       setIsProcessing(true);
 
       try {
-        // Detect faces
-        const detectedFaces = await detectFaces(img, detectionSettings);
+        // Detect faces with landmarks if available
+        const detectedFaces = await detectFacesWithLandmarks(img, detectionSettings);
+        
+        // Check if landmarks are available
+        const landmarksAvailable = areLandmarksAvailable();
+        setHasLandmarks(landmarksAvailable);
 
         if (detectedFaces.length === 0) {
           setError('未检测到人脸，请尝试更换图片');
@@ -128,6 +136,8 @@ export default function Home() {
                 opacity: emojiSettings.opacity,
                 offsetX: emojiSettings.offsetX,
                 offsetY: emojiSettings.offsetY,
+                flipX: emojiSettings.flipX,
+                flipY: emojiSettings.flipY,
               },
             ];
           }
@@ -163,7 +173,11 @@ export default function Home() {
     setIsProcessing(true);
 
     try {
-      const detectedFaces = await detectFaces(image, detectionSettings);
+      const detectedFaces = await detectFacesWithLandmarks(image, detectionSettings);
+      
+      // Check if landmarks are available
+      const landmarksAvailable = areLandmarksAvailable();
+      setHasLandmarks(landmarksAvailable);
 
       if (detectedFaces.length === 0) {
         setError('未检测到人脸，尝试调整灵敏度？');
@@ -176,6 +190,7 @@ export default function Home() {
       setIsProcessing(false);
     }
   }, [image, detectionSettings]);
+
 
   // Export image
   const handleExport = useCallback(() => {
@@ -218,22 +233,30 @@ export default function Home() {
             replacement.offsetY || 0
           );
 
-          // Apply opacity
+          // Calculate center position
+          const centerX = face.box.x + offsets.offsetX + emojiSize.width / 2;
+          const centerY = face.box.y + offsets.offsetY + emojiSize.height / 2;
+
+          // Apply opacity and rotation
           const previousAlpha = ctx.globalAlpha;
           ctx.globalAlpha = replacement.opacity || 1.0;
 
-          // Draw native emoji text
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          
+          // Apply flip transformations
+          const scaleX = replacement.flipX ? -1 : 1;
+          const scaleY = replacement.flipY ? -1 : 1;
+          ctx.scale(scaleX, scaleY);
+
+          // Draw native emoji text (centered)
           const fontSize = emojiSize.width * 0.8;
           ctx.font = `${fontSize}px Arial`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(
-            replacement.emoji,
-            face.box.x + offsets.offsetX + emojiSize.width / 2,
-            face.box.y + offsets.offsetY + emojiSize.height / 2
-          );
+          ctx.fillText(replacement.emoji, 0, 0);
 
-          // Restore alpha
+          ctx.restore();
           ctx.globalAlpha = previousAlpha;
           resolve();
           return;
@@ -258,19 +281,32 @@ export default function Home() {
             replacement.offsetY || 0
           );
 
-          // Apply opacity
+          // Calculate center position
+          const centerX = face.box.x + offsets.offsetX + emojiSize.width / 2;
+          const centerY = face.box.y + offsets.offsetY + emojiSize.height / 2;
+
+          // Apply opacity and rotation
           const previousAlpha = ctx.globalAlpha;
           ctx.globalAlpha = replacement.opacity || 1.0;
 
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          
+          // Apply flip transformations
+          const scaleX = replacement.flipX ? -1 : 1;
+          const scaleY = replacement.flipY ? -1 : 1;
+          ctx.scale(scaleX, scaleY);
+
+          // Draw emoji image centered at origin
           ctx.drawImage(
             emojiImg,
-            face.box.x + offsets.offsetX,
-            face.box.y + offsets.offsetY,
+            -emojiSize.width / 2,
+            -emojiSize.height / 2,
             emojiSize.width,
             emojiSize.height
           );
 
-          // Restore alpha
+          ctx.restore();
           ctx.globalAlpha = previousAlpha;
           resolve();
         };

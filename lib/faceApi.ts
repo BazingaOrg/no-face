@@ -29,6 +29,7 @@ const MODEL_URLS = [
 const MODEL_URL = MODEL_URLS[0]; // Use local models
 
 let isModelsLoaded = false;
+let areLandmarksLoaded = false;
 
 /**
  * Load face detection models
@@ -39,14 +40,23 @@ export async function loadModels(): Promise<void> {
   const api = await getFaceApi();
 
   try {
+    // Load core detection models (required)
     await Promise.all([
       api.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
       api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-      // Optional: face landmarks for better positioning
-      // api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
     ]);
 
     isModelsLoaded = true;
+
+    // Try to load landmarks model (optional, for advanced features)
+    try {
+      await api.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+      areLandmarksLoaded = true;
+      console.log('✅ Face Landmarks 68 模型加载成功');
+    } catch (error) {
+      console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
+      areLandmarksLoaded = false;
+    }
   } catch {
     throw new Error('Failed to load face detection models');
   }
@@ -107,4 +117,82 @@ export async function detectFaces(
  */
 export function areModelsLoaded(): boolean {
   return isModelsLoaded;
+}
+
+/**
+ * Check if landmarks model is loaded
+ */
+export function areLandmarksAvailable(): boolean {
+  return areLandmarksLoaded;
+}
+
+/**
+ * Detect faces with landmarks (if available)
+ * Returns faces with landmarks for auto-rotation feature
+ */
+export async function detectFacesWithLandmarks(
+  input: HTMLImageElement | HTMLCanvasElement,
+  settings: DetectionSettings
+): Promise<DetectedFace[]> {
+  if (!isModelsLoaded) {
+    await loadModels();
+  }
+
+  const api = await getFaceApi();
+
+  try {
+    let detections;
+
+    // Select detector based on settings
+    if (settings.detector === 'tiny_face_detector') {
+      const options = new api.TinyFaceDetectorOptions({
+        inputSize: settings.inputSize || 416,
+        scoreThreshold: settings.scoreThreshold || 0.5,
+      });
+      
+      if (areLandmarksLoaded) {
+        detections = await api.detectAllFaces(input, options).withFaceLandmarks();
+      } else {
+        detections = await api.detectAllFaces(input, options);
+      }
+    } else {
+      // Default: SSD MobileNet V1
+      const options = new api.SsdMobilenetv1Options({
+        minConfidence: settings.minConfidence || 0.5,
+      });
+      
+      if (areLandmarksLoaded) {
+        detections = await api.detectAllFaces(input, options).withFaceLandmarks();
+      } else {
+        detections = await api.detectAllFaces(input, options);
+      }
+    }
+
+    // Convert to our DetectedFace format
+    return detections.map((detection, index) => {
+      const face: DetectedFace = {
+        id: `face-${Date.now()}-${index}`,
+        box: {
+          x: detection.detection.box.x,
+          y: detection.detection.box.y,
+          width: detection.detection.box.width,
+          height: detection.detection.box.height,
+        },
+        detection: {
+          score: detection.detection.score,
+          classScore: detection.detection.classScore,
+        },
+      };
+
+      // Add landmarks if available
+      if ('landmarks' in detection && detection.landmarks) {
+        // Store landmarks for auto-rotation calculation
+        (face as any).landmarks = detection.landmarks;
+      }
+
+      return face;
+    });
+  } catch {
+    throw new Error('Face detection failed');
+  }
 }

@@ -118,22 +118,30 @@ export default function FaceCanvas({
           (replacement.offsetY || 0) * scale
         );
 
-        // Apply opacity setting
+        // Calculate center position
+        const centerX = face.box.x * scale + offsets.offsetX + emojiSize.width / 2;
+        const centerY = face.box.y * scale + offsets.offsetY + emojiSize.height / 2;
+
+        // Apply opacity and rotation
         const previousAlpha = ctx.globalAlpha;
         ctx.globalAlpha = replacement.opacity || 1.0;
 
-        // Draw native emoji text (centered in the square)
-        const fontSize = emojiSize.width * 0.8; // Make emoji slightly smaller than box
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        
+        // Apply flip transformations
+        const scaleX = replacement.flipX ? -1 : 1;
+        const scaleY = replacement.flipY ? -1 : 1;
+        ctx.scale(scaleX, scaleY);
+
+        // Draw native emoji text (centered)
+        const fontSize = emojiSize.width * 0.8;
         ctx.font = `${fontSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(
-          replacement.emoji,
-          face.box.x * scale + offsets.offsetX + emojiSize.width / 2,
-          face.box.y * scale + offsets.offsetY + emojiSize.height / 2
-        );
+        ctx.fillText(replacement.emoji, 0, 0);
 
-        // Restore alpha
+        ctx.restore();
         ctx.globalAlpha = previousAlpha;
         return;
       }
@@ -157,19 +165,32 @@ export default function FaceCanvas({
           (replacement.offsetY || 0) * scale
         );
 
-        // Apply opacity setting
+        // Calculate center position
+        const centerX = face.box.x * scale + offsets.offsetX + emojiSize.width / 2;
+        const centerY = face.box.y * scale + offsets.offsetY + emojiSize.height / 2;
+
+        // Apply opacity and rotation
         const previousAlpha = ctx.globalAlpha;
         ctx.globalAlpha = replacement.opacity || 1.0;
 
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        
+        // Apply flip transformations
+        const scaleX = replacement.flipX ? -1 : 1;
+        const scaleY = replacement.flipY ? -1 : 1;
+        ctx.scale(scaleX, scaleY);
+
+        // Draw emoji image centered at origin
         ctx.drawImage(
           emojiImg,
-          face.box.x * scale + offsets.offsetX,
-          face.box.y * scale + offsets.offsetY,
+          -emojiSize.width / 2,
+          -emojiSize.height / 2,
           emojiSize.width,
           emojiSize.height
         );
 
-        // Restore alpha
+        ctx.restore();
         ctx.globalAlpha = previousAlpha;
       };
       emojiImg.src = replacement.emojiUrl;
