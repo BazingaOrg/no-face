@@ -13,7 +13,7 @@ interface EmojiSelectorProps {
 }
 
 // Curated selection of fun and expressive emojis for face replacement
-// Each category contains 10 carefully selected emojis
+// Each category contains 10-20 carefully selected emojis
 const POPULAR_EMOJIS = [
   // 🎭 经典笑脸 - Classic Smiles
   '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
@@ -46,7 +46,8 @@ const POPULAR_EMOJIS = [
   '👻', '👹', '👺', '💀', '☠️', '🤡', '👽', '👾', '🎃', '🤖',
 
   // 🐱 可爱动物 - Cute Animals
-  '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐱',
+  '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐶',
+  '🐕', '🐩', '🦁', '🐯', '🐺', '🦄', '🐷', '🐗', '🐨', '🐼',
 
   // 🤒 生病不适 - Sick & Unwell
   '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🤥', '😵'
