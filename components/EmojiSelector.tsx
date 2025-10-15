@@ -8,6 +8,8 @@ interface EmojiSelectorProps {
   selectedEmoji: string | null;
   isOpen: boolean;
   onToggle: () => void;
+  replacedCount?: number;
+  totalFaces?: number;
 }
 
 // Commonly used emojis for face replacement
@@ -31,6 +33,8 @@ export default function EmojiSelector({
   selectedEmoji,
   isOpen,
   onToggle,
+  replacedCount = 0,
+  totalFaces = 0,
 }: EmojiSelectorProps) {
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onEmojiSelect(emojiData.emoji);
@@ -117,14 +121,23 @@ export default function EmojiSelector({
         )}
       </AnimatePresence>
 
-      {/* Instruction text - Duolingo Style */}
-      {selectedEmoji && !isOpen && (
+      {/* Instruction text - Dynamic based on state */}
+      {!isOpen && (
         <motion.p
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center text-base font-bold text-gray-700 dark:text-gray-300 mt-2"
+          key={`${selectedEmoji}-${replacedCount}-${totalFaces}`}
         >
-          👆 点击图片中的人脸进行替换
+          {!selectedEmoji ? (
+            '👈 先选择或随机一个表情'
+          ) : replacedCount === 0 ? (
+            '👆 点击人脸应用表情，或点击全部替换'
+          ) : replacedCount === totalFaces ? (
+            '✨ 已全部替换，可单独调整或重新选择表情'
+          ) : (
+            `👆 继续点击其他人脸 (${replacedCount}/${totalFaces})`
+          )}
         </motion.p>
       )}
     </div>

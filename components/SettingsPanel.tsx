@@ -10,6 +10,8 @@ interface SettingsPanelProps {
   onEmojiChange: (settings: EmojiSettings) => void;
   isOpen: boolean;
   onToggle: () => void;
+  hasReplacements?: boolean;
+  hasImage?: boolean;
 }
 
 export default function SettingsPanel({
@@ -19,6 +21,8 @@ export default function SettingsPanel({
   onEmojiChange,
   isOpen,
   onToggle,
+  hasReplacements = false,
+  hasImage = false,
 }: SettingsPanelProps) {
   return (
     <div className="w-full">
@@ -170,12 +174,19 @@ export default function SettingsPanel({
 
           {/* Emoji Settings */}
           <div>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-              😀 表情设置
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                😀 表情设置
+              </h3>
+              {hasImage && !hasReplacements && (
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
+                  ⚠️ 需要先替换表情
+                </span>
+              )}
+            </div>
 
             {/* Emoji Format */}
-            <div className="mb-4">
+            <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 格式
               </label>
@@ -192,6 +203,7 @@ export default function SettingsPanel({
                       })
                     }
                     className="hidden"
+                    disabled={hasImage && !hasReplacements}
                   />
                   <div className={`p-3 rounded-lg text-center font-medium transition-all ${
                     emojiSettings.format === 'svg'
@@ -213,6 +225,7 @@ export default function SettingsPanel({
                       })
                     }
                     className="hidden"
+                    disabled={hasImage && !hasReplacements}
                   />
                   <div className={`p-3 rounded-lg text-center font-medium transition-all ${
                     emojiSettings.format === 'png'
@@ -226,7 +239,7 @@ export default function SettingsPanel({
             </div>
 
             {/* Emoji Scale */}
-            <div className="mb-4">
+            <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   表情大小
@@ -247,6 +260,7 @@ export default function SettingsPanel({
                     scale: parseFloat(e.target.value),
                   })
                 }
+                disabled={hasImage && !hasReplacements}
                 className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-500"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
@@ -256,7 +270,7 @@ export default function SettingsPanel({
             </div>
 
             {/* Emoji Opacity */}
-            <div className="mb-4">
+            <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   透明度
@@ -277,6 +291,7 @@ export default function SettingsPanel({
                     opacity: parseFloat(e.target.value),
                   })
                 }
+                disabled={hasImage && !hasReplacements}
                 className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
@@ -286,7 +301,7 @@ export default function SettingsPanel({
             </div>
 
             {/* Position Offset */}
-            <div className="mb-4 bg-amber-50 dark:bg-amber-900/10 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+            <div className={`mb-4 bg-amber-50 dark:bg-amber-900/10 p-4 rounded-lg border border-amber-200 dark:border-amber-800 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                 📍 位置微调
               </label>
@@ -311,6 +326,7 @@ export default function SettingsPanel({
                       offsetX: parseInt(e.target.value),
                     })
                   }
+                  disabled={hasImage && !hasReplacements}
                   className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-amber-500"
                 />
                 <div className="flex justify-between text-xs text-gray-500 mt-1 font-medium">
@@ -339,6 +355,7 @@ export default function SettingsPanel({
                       offsetY: parseInt(e.target.value),
                     })
                   }
+                  disabled={hasImage && !hasReplacements}
                   className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-amber-500"
                 />
                 <div className="flex justify-between text-xs text-gray-500 mt-1 font-medium">
