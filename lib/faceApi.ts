@@ -36,7 +36,7 @@ const MODEL_URLS = [
 const MODEL_URL = MODEL_URLS[0]; // Use local models
 
 // Track individual model loading states
-let loadedModels = {
+const loadedModels = {
   ssdMobilenetv1: false,
   tinyFaceDetector: false,
   faceLandmark68Net: false,
@@ -157,7 +157,7 @@ export async function loadLandmarksModel(silent = false): Promise<void> {
   try {
     await loadSpecificModel('faceLandmark68Net');
     console.log('✅ Face Landmarks 68 模型加载成功');
-  } catch (error) {
+  } catch {
     console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
   }
 
@@ -185,7 +185,8 @@ export function isModelLoaded(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector' |
 export async function loadModels(): Promise<void> {
   if (isModelsLoaded) return;
 
-  const api = await getFaceApi();
+  // Ensure face-api is loaded
+  await getFaceApi();
 
   try {
     const modelsToLoad: string[] = [];
@@ -227,7 +228,7 @@ export async function loadModels(): Promise<void> {
       modelsToLoad.push('faceLandmark68Net');
       reportProgress('faceLandmark68Net', 100);
       console.log('✅ Face Landmarks 68 模型加载成功');
-    } catch (error) {
+    } catch {
       console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
       modelsToLoad.push('faceLandmark68Net'); // Mark as attempted
       reportProgress('faceLandmark68Net', 100);
@@ -256,7 +257,7 @@ export async function detectFaces(
       if (!loadedModels.tinyFaceDetector) {
         await loadTinyModel(true); // Silent load
       }
-      
+
       const options = new api.TinyFaceDetectorOptions({
         inputSize: settings.inputSize || 416,
         scoreThreshold: settings.scoreThreshold || 0.5,
@@ -267,7 +268,7 @@ export async function detectFaces(
       if (!loadedModels.ssdMobilenetv1) {
         await loadSSDModel();
       }
-      
+
       const options = new api.SsdMobilenetv1Options({
         minConfidence: settings.minConfidence || 0.5,
       });
@@ -326,12 +327,12 @@ export async function detectFacesWithLandmarks(
       if (!loadedModels.tinyFaceDetector) {
         await loadTinyModel(true); // Silent load
       }
-      
+
       const options = new api.TinyFaceDetectorOptions({
         inputSize: settings.inputSize || 416,
         scoreThreshold: settings.scoreThreshold || 0.5,
       });
-      
+
       if (areLandmarksLoaded) {
         detections = await api.detectAllFaces(input, options).withFaceLandmarks();
       } else {
@@ -342,11 +343,11 @@ export async function detectFacesWithLandmarks(
       if (!loadedModels.ssdMobilenetv1) {
         await loadSSDModel();
       }
-      
+
       const options = new api.SsdMobilenetv1Options({
         minConfidence: settings.minConfidence || 0.5,
       });
-      
+
       if (areLandmarksLoaded) {
         detections = await api.detectAllFaces(input, options).withFaceLandmarks();
       } else {
@@ -355,12 +356,13 @@ export async function detectFacesWithLandmarks(
     }
 
     // Convert to our DetectedFace format
-    return detections.map((detection, index) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return detections.map((detection: any, index: number) => {
       // Check if detection has landmarks (nested structure) or not (flat structure)
       const hasLandmarks = 'landmarks' in detection && detection.landmarks;
       const detectionBox = hasLandmarks ? detection.detection.box : detection.box;
       const detectionScore = hasLandmarks ? detection.detection : detection;
-      
+
       const face: DetectedFace = {
         id: `face-${Date.now()}-${index}`,
         box: {
@@ -378,6 +380,7 @@ export async function detectFacesWithLandmarks(
       // Add landmarks if available
       if (hasLandmarks) {
         // Store landmarks for auto-rotation calculation
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (face as any).landmarks = detection.landmarks;
       }
 

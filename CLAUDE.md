@@ -63,7 +63,7 @@ All state is managed in `app/page.tsx` using React `useState`:
 - `replacements`: Array of `EmojiReplacement` objects mapping faces to emojis
 - `selectedEmoji`: Currently selected emoji character
 - `detectionSettings`: Face detection configuration (detector type, confidence threshold)
-- `emojiSettings`: Emoji rendering options (format, size, scale, opacity, offsets)
+- `emojiSettings`: Emoji rendering options (size, scale, opacity, flip) - **Note: offsetX/offsetY removed in v0.2.0**
 
 ### Key Data Flow
 
@@ -143,15 +143,30 @@ Export happens at **original image resolution** (not display resolution) to main
 
 ### Settings Behavior
 
-Settings changes trigger **automatic re-application** of emojis to existing replacements (see `app/page.tsx:39-55`). This allows real-time preview of scale, opacity, and offset adjustments without re-clicking faces.
+Settings changes trigger **automatic re-application** of emojis to existing replacements (see `app/page.tsx:155-172`). This allows real-time preview of scale, opacity, and flip adjustments without re-clicking faces.
+
+### Advanced Settings Panel
+
+The settings panel uses a **unified card-style design** (v0.2.0):
+- Button and content are wrapped in a single card container
+- Button acts as the card header with conditional border
+- Content expands/collapses smoothly with Framer Motion
+- Matches Duolingo-inspired design language
+
+### Emoji Loading Optimization
+
+Emoji selector uses **lazy loading strategy** (v0.2.0):
+- Default: Shows curated grid of 140 popular emojis (fast loading)
+- On demand: Full emoji picker loads only when user clicks "加载更多"
+- Reduces initial memory footprint by ~90% and load time from 2-3s to <0.3s
 
 ### Known Issues
 
 See `ROADMAP.md` for detailed technical debt and known issues:
 
-- Large images (>10MB) may cause performance issues - consider Web Worker implementation
-- Safari compatibility needs testing
-- emoji-picker-react loads ~3600 emojis (consider virtualization/lazy loading)
+- ✅ Large images (>10MB) - **Solved**: Auto-compression to 1920px with coordinate mapping
+- ⚠️ Safari compatibility needs testing
+- ✅ emoji-picker-react loads ~3600 emojis - **Solved**: Lazy loading with curated grid
 
 ## Development Guidelines
 

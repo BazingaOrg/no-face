@@ -10,8 +10,9 @@ const TWEMOJI_CDN = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/'
 /**
  * Get twemoji image URL for a given emoji character
  * Always returns SVG format for best quality
+ * @param emoji - Emoji character
  */
-export function getTwemojiUrl(emoji: string, settings?: EmojiSettings | { format?: 'svg' | 'png'; size?: string }): string {
+export function getTwemojiUrl(emoji: string): string {
   // Convert emoji to unicode codepoint
   const codepoint = getEmojiCodepoint(emoji);
 

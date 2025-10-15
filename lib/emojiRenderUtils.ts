@@ -55,6 +55,8 @@ export function calculateEmojiSize(
 
 /**
  * Apply user offset adjustments to calculated offsets
+ * Note: User offset feature has been removed, this function is kept for backwards compatibility
+ * @deprecated This function is no longer used and may be removed in future versions
  */
 export function applyUserOffsets(
   calculatedOffsetX: number,

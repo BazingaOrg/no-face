@@ -45,7 +45,7 @@ export default function Home() {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasLandmarks, setHasLandmarks] = useState(false);
+  const [, setHasLandmarks] = useState(false); // Landmarks state for future features
   
   // Model loading state
   const [modelLoadingState, setModelLoadingState] = useState<ModelLoadingState>({
@@ -72,8 +72,6 @@ export default function Home() {
     size: '72x72',
     scale: 1.2,
     opacity: 1.0,
-    offsetX: 0,
-    offsetY: 0,
     flipX: false,
     flipY: false,
   });
@@ -155,7 +153,7 @@ export default function Home() {
   }, [detectionSettings.detector]);
 
   // Auto-apply emoji settings when they change
-  // Only update styles (scale, opacity, offset), not the emoji itself
+  // Only update styles (scale, opacity, flip), not the emoji itself
   useEffect(() => {
     if (replacements.length === 0) return;
 
@@ -166,8 +164,6 @@ export default function Home() {
         emojiUrl: getTwemojiUrl(r.emoji, emojiSettings),
         scale: emojiSettings.scale,
         opacity: emojiSettings.opacity,
-        offsetX: emojiSettings.offsetX,
-        offsetY: emojiSettings.offsetY,
         flipX: emojiSettings.flipX,
         flipY: emojiSettings.flipY,
       }))
@@ -234,8 +230,13 @@ export default function Home() {
         setHasLandmarks(landmarksAvailable);
 
         if (mappedFaces.length === 0) {
-          setError('未检测到人脸，请尝试更换图片');
+          setError('未检测到人脸。💡 提示：可以在下方"⚙️ 高级设置"中降低检测灵敏度试试');
         } else {
+          // Performance warning for too many faces
+          if (mappedFaces.length > 50) {
+            setToastMessage(`⚠️ 检测到 ${mappedFaces.length} 张人脸，处理可能较慢。建议裁剪图片或提高检测灵敏度。`);
+            setIsToastVisible(true);
+          }
           setFaces(mappedFaces);
         }
       } catch (error) {
@@ -291,8 +292,6 @@ export default function Home() {
                 position: face.box,
                 scale: emojiSettings.scale,
                 opacity: emojiSettings.opacity,
-                offsetX: emojiSettings.offsetX,
-                offsetY: emojiSettings.offsetY,
                 flipX: emojiSettings.flipX,
                 flipY: emojiSettings.flipY,
               },
@@ -353,8 +352,13 @@ export default function Home() {
       setHasLandmarks(landmarksAvailable);
 
       if (mappedFaces.length === 0) {
-        setError('未检测到人脸，尝试调整灵敏度？');
+        setError('未检测到人脸。💡 提示：可以在下方"⚙️ 高级设置"中降低检测灵敏度试试');
       } else {
+        // Performance warning for too many faces
+        if (mappedFaces.length > 50) {
+          setToastMessage(`⚠️ 检测到 ${mappedFaces.length} 张人脸，处理可能较慢。建议裁剪图片或提高检测灵敏度。`);
+          setIsToastVisible(true);
+        }
         setFaces(mappedFaces);
       }
     } catch (error) {

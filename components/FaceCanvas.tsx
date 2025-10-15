@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DetectedFace, EmojiReplacement } from '@/types';
 import { motion } from 'framer-motion';
-import { calculateEmojiSize, applyUserOffsets } from '@/lib/emojiRenderUtils';
+import { calculateEmojiSize } from '@/lib/emojiRenderUtils';
 
 interface FaceCanvasProps {
   image: HTMLImageElement | null;
@@ -157,17 +157,9 @@ export default function FaceCanvas({
           replacement.scale || 1
         );
 
-        // Apply user-defined offsets
-        const offsets = applyUserOffsets(
-          emojiSize.offsetX,
-          emojiSize.offsetY,
-          (replacement.offsetX || 0) * scale,
-          (replacement.offsetY || 0) * scale
-        );
-
-        // Calculate center position
-        const centerX = face.box.x * scale + offsets.offsetX + emojiSize.width / 2;
-        const centerY = face.box.y * scale + offsets.offsetY + emojiSize.height / 2;
+        // Calculate center position with adaptive offsets
+        const centerX = face.box.x * scale + emojiSize.offsetX + emojiSize.width / 2;
+        const centerY = face.box.y * scale + emojiSize.offsetY + emojiSize.height / 2;
 
         // Apply opacity and rotation
         const previousAlpha = ctx.globalAlpha;

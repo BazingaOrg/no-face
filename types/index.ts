@@ -30,8 +30,6 @@ export interface EmojiReplacement {
   };
   scale?: number;
   opacity?: number;
-  offsetX?: number;
-  offsetY?: number;
   flipX?: boolean;
   flipY?: boolean;
 }
@@ -49,8 +47,6 @@ export interface EmojiSettings {
   size: '36x36' | '72x72';
   scale: number; // 0.5-2.0, relative to face size
   opacity: number; // 0.5-1.0, emoji transparency
-  offsetX: number; // -20 to 20, horizontal offset in pixels
-  offsetY: number; // -20 to 20, vertical offset in pixels
   flipX: boolean; // horizontal flip
   flipY: boolean; // vertical flip
 }

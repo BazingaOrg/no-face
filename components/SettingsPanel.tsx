@@ -26,40 +26,46 @@ export default function SettingsPanel({
 }: SettingsPanelProps) {
   return (
     <div className="w-full">
-      {/* Settings toggle button - Duolingo Style */}
-      <motion.button
-        onClick={onToggle}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="w-full py-3 px-5 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-2xl font-black text-base shadow-lg transition-all flex items-center justify-between border-b-4 border-gray-300 dark:border-slate-600 active:border-b-0 active:mt-1"
-      >
-        <span className="flex items-center gap-2">
-          ⚙️ 高级设置
-        </span>
-        <svg
-          className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      {/* Unified card container - Duolingo Style */}
+      <div className="w-full bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 border-gray-200 dark:border-slate-700 overflow-hidden">
+        {/* Settings toggle button as card header */}
+        <motion.button
+          onClick={onToggle}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          className={`w-full py-3 px-5 text-gray-800 dark:text-gray-100 font-black text-base transition-all flex items-center justify-between ${
+            isOpen
+              ? 'bg-gray-50 dark:bg-slate-750 border-b-2 border-gray-200 dark:border-slate-700'
+              : 'hover:bg-gray-50 dark:hover:bg-slate-750'
+          }`}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={3}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </motion.button>
+          <span className="flex items-center gap-2">
+            ⚙️ 高级设置
+          </span>
+          <svg
+            className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={3}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </motion.button>
 
-      {/* Settings panel - Duolingo Style */}
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, height: 0, y: -20 }}
-          animate={{ opacity: 1, height: 'auto', y: 0 }}
-          exit={{ opacity: 0, height: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-          className="mt-4 p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-md space-y-5 border border-gray-200 dark:border-slate-700"
-        >
+        {/* Settings panel content as card body */}
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="p-5 space-y-5"
+          >
           {/* Detection Settings */}
           <div>
             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
@@ -277,70 +283,7 @@ export default function SettingsPanel({
               </div>
             </div>
 
-            {/* Position Offset */}
-            <div className={`mb-4 bg-amber-50 dark:bg-amber-900/10 p-4 rounded-lg border border-amber-200 dark:border-amber-800 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                📍 位置微调
-              </label>
 
-              {/* Horizontal Offset */}
-              <div className="mb-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">左右移动</span>
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded numeric-display">
-                    {emojiSettings.offsetX > 0 ? '+' : ''}{emojiSettings.offsetX}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="-20"
-                  max="20"
-                  step="1"
-                  value={emojiSettings.offsetX}
-                  onChange={(e) =>
-                    onEmojiChange({
-                      ...emojiSettings,
-                      offsetX: parseInt(e.target.value),
-                    })
-                  }
-                  disabled={hasImage && !hasReplacements}
-                  className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-amber-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1 font-medium">
-                  <span>⬅️ 左</span>
-                  <span>➡️ 右</span>
-                </div>
-              </div>
-
-              {/* Vertical Offset */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">上下移动</span>
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded numeric-display">
-                    {emojiSettings.offsetY > 0 ? '+' : ''}{emojiSettings.offsetY}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="-20"
-                  max="20"
-                  step="1"
-                  value={emojiSettings.offsetY}
-                  onChange={(e) =>
-                    onEmojiChange({
-                      ...emojiSettings,
-                      offsetY: parseInt(e.target.value),
-                    })
-                  }
-                  disabled={hasImage && !hasReplacements}
-                  className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-amber-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1 font-medium">
-                  <span>⬆️ 上</span>
-                  <span>⬇️ 下</span>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Reset to Defaults */}
@@ -355,8 +298,6 @@ export default function SettingsPanel({
                   size: '72x72',
                   scale: 1.2,
                   opacity: 1.0,
-                  offsetX: 0,
-                  offsetY: 0,
                   flipX: false,
                   flipY: false,
                 });
@@ -369,7 +310,8 @@ export default function SettingsPanel({
             </motion.button>
           </div>
         </motion.div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
