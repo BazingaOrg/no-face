@@ -582,10 +582,10 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
-              className="absolute -top-0 -right-20 -translate-y-1/2 inline-flex items-center justify-center gap-1 px-3 py-1 bg-green-50 dark:bg-green-900/20 border border-green-500 dark:border-green-600 rounded-full shadow-sm"
+              className="absolute -top-0 -right-20 -translate-y-1/2 inline-flex items-center justify-center gap-1 px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full shadow-sm"
             >
               <span className="text-xs">🔒</span>
-              <span className="text-[10px] font-semibold text-green-700 dark:text-green-300 whitespace-nowrap">
+              <span className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                 本地处理
               </span>
             </motion.div>
