@@ -15,13 +15,27 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 - [x] Advanced settings panel
   - [x] Detection sensitivity slider
   - [x] Detector type selection (SSD vs Tiny)
+  - [x] Performance mode for Tiny Face Detector (极速/平衡/精准)
   - [x] Emoji size/scale adjustment
   - [x] Emoji opacity control
   - [x] Position offset controls (X/Y)
+  - [x] Flip controls (horizontal/vertical)
+- [x] Emoji rendering optimization
+  - [x] Default to SVG format for best quality
+  - [x] Fallback to native emoji when CDN fails
 - [x] Animations and transitions (Framer Motion)
 - [x] "Apply to All" and "Reset" buttons
 - [x] Random emoji button
-- [x] Fallback to native emoji rendering when CDN fails
+- [x] Smart button state management (disable when conditions not met)
+- [x] Dynamic progress indicators (X/Y faces replaced)
+- [x] Contextual guidance messages based on current state
+- [x] Curated emoji collection (140+ emojis, 12 categories)
+  - [x] Classic smiles, cute flirty, goofy playful
+  - [x] Thinking curious, tired reluctant, dramatic shocked
+  - [x] Cool confident, sad emotional, angry furious
+  - [x] Spooky scary, cute animals (cats, dogs, wild animals), sick unwell
+- [x] Advanced settings panel conditional controls
+  - [x] Emoji settings disabled when no faces replaced
 
 ## 🚧 Technical Debt & Known Issues
 
@@ -31,11 +45,18 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
   - **Status**: Using local `/models` with CDN fallback
   - **Setup guide**: See `MODELS_DOWNLOAD.md` for instructions
   - **Configuration**: `lib/faceApi.ts` line 29 switches between local/CDN
+  - **Note**: Face Landmarks 68 model downloaded but not currently in use (prepared for future features)
+
+- [ ] **Model loading progress indicator**: Show loading state for better UX
+  - **Impact**: Model files are ~5-10MB, initial load can take 2-5 seconds
+  - **TODO**: Add progress bar or spinner during model initialization
+  - **TODO**: Show which model is currently loading
 
 - [ ] **Large image optimization**: Images > 10MB may cause performance issues
   - **Consider**: Web Worker for face detection (non-blocking UI)
   - **Consider**: Progressive loading indicator
   - **Consider**: Auto-compress input to max 1920px width for processing
+  - **Status**: Currently processing on main thread, may block UI for large images
 
 ### Medium Priority
 
@@ -63,9 +84,14 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 
 - [ ] Individual face editing
   - [x] Click to apply emoji to specific face
+  - [x] Flip emoji (horizontal/vertical)
   - [ ] Drag to reposition emoji per face
   - [ ] Pinch/scroll to scale emoji per face
-  - [ ] Rotate emoji (double-finger rotation on mobile)
+  - [ ] **Emoji rotation** ⚠️ *Previously implemented but removed due to poor UX*
+    - [ ] Redesign interaction model (slider-based rotation works but lacks intuitiveness)
+    - [ ] Improve canvas-based rotation (mouse drag + two-finger touch needs better visual feedback)
+    - [ ] Auto-rotation based on Face Landmarks 68 (model downloaded but feature disabled)
+    - [ ] Consider rotation handle UI similar to professional image editors
 - [ ] Undo/Redo functionality
   - [ ] History stack implementation
   - [ ] Keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z)
@@ -133,20 +159,29 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 
 ## 📊 Performance Optimization Ideas
 
-- [ ] Implement Web Worker for face detection
+- [ ] **Implement Web Worker for face detection** 🎯 High impact for large images
   - [ ] Offload heavy computation from main thread
   - [ ] Keep UI responsive during processing
-- [ ] Use OffscreenCanvas for image processing
+  - [ ] Transfer ImageData via transferable objects for zero-copy
+- [ ] **Use OffscreenCanvas for image processing**
   - [ ] Background rendering for better performance
-- [ ] Add image compression before processing
-  - [ ] Limit input size to 1920px width
+  - [ ] Compatible with Web Worker
+- [ ] **Add image compression before processing**
+  - [ ] Limit input size to 1920px width for processing
   - [ ] Maintain aspect ratio
-  - [ ] But export original quality
-- [ ] Cache detection results
+  - [ ] Export original quality (no compression on output)
+  - [ ] Support format conversion (HEIC/JPEG → PNG)
+- [ ] **Cache detection results and assets**
   - [x] Store face coordinates in state
   - [x] Re-use when changing emoji settings (auto re-apply)
   - [ ] Persist to localStorage for session recovery
-- [ ] Lazy load twemoji assets
+  - [ ] Cache loaded emoji images to avoid repeated CDN requests
+  - [ ] Implement LRU cache for recently used emojis
+- [ ] **Batch processing for multiple images**
+  - [ ] Queue system for processing multiple uploads
+  - [ ] Background processing with progress indicator
+  - [ ] Export as ZIP file
+- [ ] **Lazy load twemoji assets**
   - [ ] Load only visible emojis in picker
   - [x] Preload selected emoji with fallback
 
@@ -191,9 +226,17 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 ## 📅 Timeline
 
 - **Week 1**: MVP implementation ✅ (Completed)
-- **Week 2**: Code cleanup, documentation, testing (Current)
-- **Week 3**: Bug fixes, browser compatibility testing
+- **Week 2**: Code cleanup, documentation, testing ✅ (Completed)
+  - Added flip controls, performance mode optimization
+  - Simplified emoji format (default to SVG)
+  - Attempted rotation feature (removed due to poor UX, needs redesign)
+- **Week 3**: Performance optimization, model loading improvements (Current)
+  - Focus: Web Worker integration, loading progress indicator
+  - Focus: Batch processing and caching strategies
 - **Week 4+**: Phase 2 features based on user feedback
+  - Redesign rotation interaction
+  - Drag-to-reposition functionality
+  - Enhanced mobile gesture support
 
 ## 🤝 Contributing
 
@@ -201,6 +244,7 @@ This project welcomes contributions! See GitHub issues for open tasks.
 
 ---
 
-**Last Updated**: 2025-01-14
-**Current Phase**: MVP (Phase 1) - Code Cleanup & Documentation
-**Version**: 1.0.0-rc1
+**Last Updated**: 2025-10-15
+**Current Phase**: Phase 1 Refinement → Phase 2 Planning
+**Version**: 1.1.0
+**Recent Updates**: Enhanced UX with smart state management, expanded emoji collection to 140+ curated emojis
