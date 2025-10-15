@@ -27,13 +27,15 @@ export default function SettingsPanel({
   return (
     <div className="w-full">
       {/* Unified card container - Duolingo Style */}
-      <div className="w-full bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 border-gray-200 dark:border-slate-700 overflow-hidden">
+      <div className={`w-full bg-white dark:bg-slate-800 shadow-lg border-2 border-gray-200 dark:border-slate-700 overflow-hidden transition-all duration-300 ${
+        isOpen ? 'rounded-2xl' : 'rounded-2xl'
+      }`}>
         {/* Settings toggle button as card header */}
         <motion.button
           onClick={onToggle}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
-          className={`w-full py-3 px-5 text-gray-800 dark:text-gray-100 font-black text-base transition-all flex items-center justify-between ${
+          className={`w-full py-3 px-5 text-gray-800 dark:text-gray-100 font-black text-base flex items-center justify-between transition-all duration-300 ${
             isOpen
               ? 'bg-gray-50 dark:bg-slate-750 border-b-2 border-gray-200 dark:border-slate-700'
               : 'hover:bg-gray-50 dark:hover:bg-slate-750'
@@ -42,8 +44,10 @@ export default function SettingsPanel({
           <span className="flex items-center gap-2">
             ⚙️ 高级设置
           </span>
-          <svg
-            className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          <motion.svg
+            animate={{ rotate: isOpen ? 180 : 0 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="w-5 h-5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -54,18 +58,23 @@ export default function SettingsPanel({
               strokeWidth={3}
               d="M19 9l-7 7-7-7"
             />
-          </svg>
+          </motion.svg>
         </motion.button>
 
         {/* Settings panel content as card body */}
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="p-5 space-y-5"
-          >
+        <motion.div
+          initial={false}
+          animate={{
+            height: isOpen ? 'auto' : 0,
+            opacity: isOpen ? 1 : 0,
+          }}
+          transition={{
+            height: { duration: 0.3, ease: 'easeInOut' },
+            opacity: { duration: 0.2, ease: 'easeInOut' },
+          }}
+          className="overflow-hidden"
+        >
+          <div className="p-5 space-y-5">
           {/* Detection Settings */}
           <div>
             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
@@ -309,8 +318,8 @@ export default function SettingsPanel({
               🔄 恢复默认设置
             </motion.button>
           </div>
+          </div>
         </motion.div>
-        )}
       </div>
     </div>
   );

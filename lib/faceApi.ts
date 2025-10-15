@@ -77,67 +77,89 @@ async function loadSpecificModel(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector
 }
 
 /**
+ * Simulate progressive loading with smooth progress updates
+ * Creates a more natural loading experience
+ */
+async function simulateProgressiveLoading(
+  modelName: string,
+  startProgress: number,
+  targetProgress: number,
+  actualLoadPromise: Promise<void>
+): Promise<void> {
+  let currentProgress = startProgress;
+  const progressIncrement = 2; // Increment by 2% each step
+  const updateInterval = 100; // Update every 100ms
+
+  // Start progress simulation
+  const progressInterval = setInterval(() => {
+    if (currentProgress < targetProgress - 5) {
+      // Slow down as we approach target (simulate real download curve)
+      const remaining = targetProgress - currentProgress;
+      const increment = Math.max(0.5, progressIncrement * (remaining / 30));
+      currentProgress = Math.min(currentProgress + increment, targetProgress - 5);
+
+      if (progressCallback) {
+        progressCallback({
+          model: modelName,
+          loaded: 0,
+          total: 1,
+          percentage: Math.round(currentProgress),
+        });
+      }
+    }
+  }, updateInterval);
+
+  try {
+    // Wait for actual model loading
+    await actualLoadPromise;
+
+    // Clear interval and jump to 100%
+    clearInterval(progressInterval);
+
+    if (progressCallback) {
+      progressCallback({
+        model: modelName,
+        loaded: 1,
+        total: 1,
+        percentage: targetProgress,
+      });
+    }
+  } catch (error) {
+    clearInterval(progressInterval);
+    throw error;
+  }
+}
+
+/**
  * Load SSD MobileNet V1 model (primary detector)
  */
 export async function loadSSDModel(): Promise<void> {
-  if (progressCallback) {
-    progressCallback({
-      model: 'ssdMobilenetv1',
-      loaded: 0,
-      total: 1,
-      percentage: 0,
-    });
-  }
+  await simulateProgressiveLoading(
+    'ssdMobilenetv1',
+    0,
+    100,
+    loadSpecificModel('ssdMobilenetv1')
+  );
 
-  // Simulate progress updates for better UX
-  const progressSteps = [0, 30, 60];
-  for (const step of progressSteps) {
-    if (progressCallback) {
-      progressCallback({
-        model: 'ssdMobilenetv1',
-        loaded: 0,
-        total: 1,
-        percentage: step,
-      });
-    }
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-
-  await loadSpecificModel('ssdMobilenetv1');
   isModelsLoaded = true; // Mark as loaded for legacy compatibility
-
-  if (progressCallback) {
-    progressCallback({
-      model: 'ssdMobilenetv1',
-      loaded: 1,
-      total: 1,
-      percentage: 100,
-    });
-  }
 }
 
 /**
  * Load Tiny Face Detector model
  */
 export async function loadTinyModel(silent = false): Promise<void> {
-  if (!silent && progressCallback) {
-    progressCallback({
-      model: 'tinyFaceDetector',
-      loaded: 0,
-      total: 1,
-      percentage: 0,
-    });
-  }
-
-  await loadSpecificModel('tinyFaceDetector');
-
-  if (!silent && progressCallback) {
-    progressCallback({
-      model: 'tinyFaceDetector',
-      loaded: 1,
-      total: 1,
-      percentage: 100,
-    });
+  if (silent) {
+    // Silent mode: load without progress updates
+    await loadSpecificModel('tinyFaceDetector');
+  } else {
+    // With progress simulation
+    await simulateProgressiveLoading(
+      'tinyFaceDetector',
+      0,
+      100,
+      loadSpecificModel('tinyFaceDetector')
+    );
+    console.log('✅ Tiny Face Detector 已在后台加载完成');
   }
 }
 
@@ -145,29 +167,35 @@ export async function loadTinyModel(silent = false): Promise<void> {
  * Load Face Landmarks 68 model
  */
 export async function loadLandmarksModel(silent = false): Promise<void> {
-  if (!silent && progressCallback) {
-    progressCallback({
-      model: 'faceLandmark68Net',
-      loaded: 0,
-      total: 1,
-      percentage: 0,
-    });
-  }
-
-  try {
-    await loadSpecificModel('faceLandmark68Net');
-    console.log('✅ Face Landmarks 68 模型加载成功');
-  } catch {
-    console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
-  }
-
-  if (!silent && progressCallback) {
-    progressCallback({
-      model: 'faceLandmark68Net',
-      loaded: 1,
-      total: 1,
-      percentage: 100,
-    });
+  if (silent) {
+    // Silent mode: load without progress updates
+    try {
+      await loadSpecificModel('faceLandmark68Net');
+    } catch {
+      console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
+    }
+  } else {
+    // With progress simulation
+    try {
+      await simulateProgressiveLoading(
+        'faceLandmark68Net',
+        0,
+        100,
+        loadSpecificModel('faceLandmark68Net')
+      );
+      console.log('✅ Face Landmarks 68 模型加载成功');
+    } catch {
+      console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
+      // Still report 100% to close the loading modal
+      if (progressCallback) {
+        progressCallback({
+          model: 'faceLandmark68Net',
+          loaded: 1,
+          total: 1,
+          percentage: 100,
+        });
+      }
+    }
   }
 }
 
@@ -189,49 +217,44 @@ export async function loadModels(): Promise<void> {
   await getFaceApi();
 
   try {
-    const modelsToLoad: string[] = [];
-    let currentProgress = 0;
-    const totalModels = 3; // ssd, tiny, landmarks
-    
-    // Helper to report progress
-    const reportProgress = (modelName: string, percentage: number) => {
-      if (progressCallback) {
-        progressCallback({
-          model: modelName,
-          loaded: modelsToLoad.length,
-          total: totalModels,
-          percentage,
-        });
-      }
-    };
+    // Load SSD MobileNet V1 (primary detector) - 0% to 33%
+    await simulateProgressiveLoading(
+      'ssdMobilenetv1',
+      0,
+      33,
+      loadSpecificModel('ssdMobilenetv1')
+    );
 
-    // Load SSD MobileNet V1 (primary detector)
-    reportProgress('ssdMobilenetv1', 0);
-    await loadSpecificModel('ssdMobilenetv1');
-    modelsToLoad.push('ssdMobilenetv1');
-    currentProgress = (modelsToLoad.length / totalModels) * 100;
-    reportProgress('ssdMobilenetv1', currentProgress);
-
-    // Load Tiny Face Detector
-    reportProgress('tinyFaceDetector', currentProgress);
-    await loadSpecificModel('tinyFaceDetector');
-    modelsToLoad.push('tinyFaceDetector');
-    currentProgress = (modelsToLoad.length / totalModels) * 100;
-    reportProgress('tinyFaceDetector', currentProgress);
+    // Load Tiny Face Detector - 33% to 67%
+    await simulateProgressiveLoading(
+      'tinyFaceDetector',
+      33,
+      67,
+      loadSpecificModel('tinyFaceDetector')
+    );
 
     isModelsLoaded = true;
 
-    // Try to load landmarks model (optional, for advanced features)
+    // Try to load landmarks model (optional, for advanced features) - 67% to 100%
     try {
-      reportProgress('faceLandmark68Net', currentProgress);
-      await loadSpecificModel('faceLandmark68Net');
-      modelsToLoad.push('faceLandmark68Net');
-      reportProgress('faceLandmark68Net', 100);
+      await simulateProgressiveLoading(
+        'faceLandmark68Net',
+        67,
+        100,
+        loadSpecificModel('faceLandmark68Net')
+      );
       console.log('✅ Face Landmarks 68 模型加载成功');
     } catch {
       console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
-      modelsToLoad.push('faceLandmark68Net'); // Mark as attempted
-      reportProgress('faceLandmark68Net', 100);
+      // Still report 100% to close the loading modal
+      if (progressCallback) {
+        progressCallback({
+          model: 'faceLandmark68Net',
+          loaded: 3,
+          total: 3,
+          percentage: 100,
+        });
+      }
     }
   } catch (error) {
     console.error('模型加载失败:', error);
