@@ -342,29 +342,35 @@ export async function detectFacesWithLandmarks(
 
     // Convert to our DetectedFace format
     return detections.map((detection, index) => {
+      // Check if detection has landmarks (nested structure) or not (flat structure)
+      const hasLandmarks = 'landmarks' in detection && detection.landmarks;
+      const detectionBox = hasLandmarks ? detection.detection.box : detection.box;
+      const detectionScore = hasLandmarks ? detection.detection : detection;
+      
       const face: DetectedFace = {
         id: `face-${Date.now()}-${index}`,
         box: {
-          x: detection.detection.box.x,
-          y: detection.detection.box.y,
-          width: detection.detection.box.width,
-          height: detection.detection.box.height,
+          x: detectionBox.x,
+          y: detectionBox.y,
+          width: detectionBox.width,
+          height: detectionBox.height,
         },
         detection: {
-          score: detection.detection.score,
-          classScore: detection.detection.classScore,
+          score: detectionScore.score,
+          classScore: detectionScore.classScore,
         },
       };
 
       // Add landmarks if available
-      if ('landmarks' in detection && detection.landmarks) {
+      if (hasLandmarks) {
         // Store landmarks for auto-rotation calculation
         (face as any).landmarks = detection.landmarks;
       }
 
       return face;
     });
-  } catch {
+  } catch (error) {
+    console.error('Face detection error:', error);
     throw new Error('Face detection failed');
   }
 }

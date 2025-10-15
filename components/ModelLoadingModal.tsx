@@ -61,70 +61,38 @@ export default function ModelLoadingModal({ state }: ModelLoadingModalProps) {
             首次使用需要下载模型，请稍候...
           </p>
 
+          {/* Current Model Info */}
+          {state.currentModel && (
+            <div className="mb-6">
+              <div className="flex items-center justify-center gap-3 mb-4 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600 rounded-xl">
+                <span className="text-2xl">⏳</span>
+                <span className="text-lg font-black text-blue-700 dark:text-blue-300">
+                  {MODEL_DISPLAY_NAMES[state.currentModel]}
+                </span>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  className="text-xl text-blue-500"
+                >
+                  ⚡
+                </motion.div>
+              </div>
+            </div>
+          )}
+
           {/* Progress Bar */}
           <div className="mb-6">
             <div className="flex justify-between text-sm font-bold text-gray-600 dark:text-gray-300 mb-2 numeric-display">
-              <span>{state.currentModel && MODEL_DISPLAY_NAMES[state.currentModel]}</span>
+              <span>加载进度</span>
               <span>{Math.round(state.progress)}%</span>
             </div>
-            <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <motion.div
-                initial={{ width: 0 }}
                 animate={{ width: `${state.progress}%` }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
                 className="h-full bg-gradient-to-r from-green-400 via-blue-500 to-purple-500 rounded-full"
               />
             </div>
-          </div>
-
-          {/* Model Status List */}
-          <div className="space-y-2">
-            {['ssdMobilenetv1', 'tinyFaceDetector', 'faceLandmark68Net'].map((modelKey) => {
-              const isLoaded = state.loadedModels.includes(modelKey);
-              const isCurrent = state.currentModel === modelKey;
-              
-              return (
-                <motion.div
-                  key={modelKey}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-colors ${
-                    isCurrent
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600'
-                      : isLoaded
-                      ? 'bg-green-50 dark:bg-green-900/20'
-                      : 'bg-gray-50 dark:bg-slate-700/50'
-                  }`}
-                >
-                  {/* Status Icon */}
-                  <span className="text-xl">
-                    {isLoaded ? '✅' : isCurrent ? '⏳' : '⏸️'}
-                  </span>
-
-                  {/* Model Name */}
-                  <span className={`text-sm font-bold flex-1 ${
-                    isLoaded
-                      ? 'text-green-700 dark:text-green-300'
-                      : isCurrent
-                      ? 'text-blue-700 dark:text-blue-300'
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}>
-                    {MODEL_DISPLAY_NAMES[modelKey]}
-                  </span>
-
-                  {/* Loading Spinner for current model */}
-                  {isCurrent && (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                      className="text-blue-500"
-                    >
-                      ⚡
-                    </motion.div>
-                  )}
-                </motion.div>
-              );
-            })}
           </div>
 
           {/* Tip */}
