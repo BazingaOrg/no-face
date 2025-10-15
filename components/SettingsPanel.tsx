@@ -79,12 +79,19 @@ export default function SettingsPanel({
                     detector: e.target.value as 'ssd_mobilenetv1' | 'tiny_face_detector',
                   })
                 }
-                className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-800 transition-all"
+                className="w-full px-4 py-3 text-base md:text-sm border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold shadow-sm appearance-none cursor-pointer transition-all"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.5em 1.5em',
+                  paddingRight: '2.5rem',
+                }}
               >
-                <option value="ssd_mobilenetv1">
+                <option value="ssd_mobilenetv1" className="text-base md:text-sm font-bold py-2">
                   🎯 标准模式（推荐）
                 </option>
-                <option value="tiny_face_detector">
+                <option value="tiny_face_detector" className="text-base md:text-sm font-bold py-2">
                   ⚡ 极速模式
                 </option>
               </select>

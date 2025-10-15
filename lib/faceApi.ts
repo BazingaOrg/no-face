@@ -89,6 +89,20 @@ export async function loadSSDModel(): Promise<void> {
     });
   }
 
+  // Simulate progress updates for better UX
+  const progressSteps = [0, 30, 60];
+  for (const step of progressSteps) {
+    if (progressCallback) {
+      progressCallback({
+        model: 'ssdMobilenetv1',
+        loaded: 0,
+        total: 1,
+        percentage: step,
+      });
+    }
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+
   await loadSpecificModel('ssdMobilenetv1');
   isModelsLoaded = true; // Mark as loaded for legacy compatibility
 
