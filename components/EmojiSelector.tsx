@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -62,15 +61,9 @@ export default function EmojiSelector({
   replacedCount = 0,
   totalFaces = 0,
 }: EmojiSelectorProps) {
-  // State for showing full emoji picker (lazy loading)
-  const [showFullPicker, setShowFullPicker] = useState(false);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onEmojiSelect(emojiData.emoji);
-  };
-
-  const handlePopularEmojiClick = (emoji: string) => {
-    onEmojiSelect(emoji);
   };
 
   const handleRandomEmoji = () => {
@@ -136,63 +129,18 @@ export default function EmojiSelector({
             transition={{ duration: 0.3 }}
             className="overflow-hidden mt-4"
           >
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-4 border-4 border-purple-400 dark:border-purple-600">
-              {!showFullPicker ? (
-                /* Popular emojis grid - Fast loading */
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                      🌟 精选表情 ({POPULAR_EMOJIS.length} 个)
-                    </h3>
-                    <button
-                      onClick={() => setShowFullPicker(true)}
-                      className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-                    >
-                      📦 加载更多...
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-8 sm:grid-cols-10 gap-2 max-h-[300px] overflow-y-auto">
-                    {POPULAR_EMOJIS.map((emoji, index) => (
-                      <motion.button
-                        key={`${emoji}-${index}`}
-                        onClick={() => handlePopularEmojiClick(emoji)}
-                        whileHover={{ scale: 1.2 }}
-                        whileTap={{ scale: 0.9 }}
-                        className="text-3xl hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg p-2 transition-all"
-                        title={emoji}
-                      >
-                        {emoji}
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                /* Full emoji picker - Lazy loaded */
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                      🎨 完整表情库
-                    </h3>
-                    <button
-                      onClick={() => setShowFullPicker(false)}
-                      className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-                    >
-                      ← 返回精选
-                    </button>
-                  </div>
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    theme={Theme.AUTO}
-                    skinTonesDisabled
-                    searchPlaceHolder="搜索表情..."
-                    width="100%"
-                    height={350}
-                    previewConfig={{
-                      showPreview: false,
-                    }}
-                  />
-                </div>
-              )}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-4 border-2 border-gray-200 dark:border-slate-700">
+              <EmojiPicker
+                onEmojiClick={handleEmojiClick}
+                theme={Theme.AUTO}
+                skinTonesDisabled
+                searchPlaceHolder="搜索表情..."
+                width="100%"
+                height={350}
+                previewConfig={{
+                  showPreview: false,
+                }}
+              />
             </div>
           </motion.div>
         )}
