@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import NextImage from 'next/image';
 import ImageUploader from '@/components/ImageUploader';
@@ -10,6 +10,7 @@ import SettingsPanel from '@/components/SettingsPanel';
 import ModelLoadingModal from '@/components/ModelLoadingModal';
 import ProcessingOverlay from '@/components/ProcessingOverlay';
 import Toast from '@/components/Toast';
+import EmojiInspector from '@/components/EmojiInspector';
 import { 
   DetectedFace, 
   EmojiReplacement, 
@@ -46,6 +47,7 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, setHasLandmarks] = useState(false); // Landmarks state for future features
+  const [activeReplacementId, setActiveReplacementId] = useState<string | null>(null);
   
   // Model loading state
   const [modelLoadingState, setModelLoadingState] = useState<ModelLoadingState>({
@@ -75,6 +77,56 @@ export default function Home() {
     flipX: false,
     flipY: false,
   });
+
+  const activeReplacement = useMemo(
+    () => replacements.find((replacement) => replacement.faceId === activeReplacementId) || null,
+    [replacements, activeReplacementId]
+  );
+
+  const activeFaceIndex = useMemo(
+    () => faces.findIndex((face) => face.id === activeReplacementId),
+    [faces, activeReplacementId]
+  );
+
+  const isInspectorOpen = Boolean(activeReplacement);
+  const inspectorPadding = isInspectorOpen ? '18rem' : undefined;
+
+  const applyReplacementPatch = useCallback(
+    (
+      faceId: string,
+      patch: Partial<EmojiReplacement>,
+      options: { customState?: boolean } = {}
+    ) => {
+      setReplacements((prev) =>
+        prev.map((replacement) => {
+          if (replacement.faceId !== faceId) return replacement;
+
+          const next: EmojiReplacement = {
+            ...replacement,
+            ...patch,
+          };
+
+          if (options.customState !== undefined) {
+            next.isCustom = options.customState;
+          } else if (Object.keys(patch).length > 0) {
+            next.isCustom = true;
+          }
+
+          return next;
+        })
+      );
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!activeReplacementId) return;
+
+    const exists = replacements.some((replacement) => replacement.faceId === activeReplacementId);
+    if (!exists) {
+      setActiveReplacementId(null);
+    }
+  }, [activeReplacementId, replacements]);
 
   // Load models progressively on mount
   useEffect(() => {
@@ -158,18 +210,27 @@ export default function Home() {
     if (replacements.length === 0) return;
 
     setReplacements((prev) =>
-      prev.map((r) => ({
-        ...r,
-        // Use each replacement's own emoji to generate URL (always SVG)
-        emojiUrl: getTwemojiUrl(r.emoji),
-        scale: emojiSettings.scale,
-        opacity: emojiSettings.opacity,
-        flipX: emojiSettings.flipX,
-        flipY: emojiSettings.flipY,
-      }))
+      prev.map((replacement) => {
+        const withUrl = {
+          ...replacement,
+          emojiUrl: getTwemojiUrl(replacement.emoji),
+        };
+
+        if (replacement.isCustom) {
+          return withUrl;
+        }
+
+        return {
+          ...withUrl,
+          scale: emojiSettings.scale,
+          opacity: emojiSettings.opacity,
+          flipX: emojiSettings.flipX,
+          flipY: emojiSettings.flipY,
+        };
+      })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emojiSettings]); // Only trigger on emojiSettings change, not replacements
+  }, [emojiSettings]);
 
   // Handle image upload
   const handleImageLoad = useCallback(
@@ -177,6 +238,7 @@ export default function Home() {
       setImage(img);
       setFaces([]);
       setReplacements([]);
+      setActiveReplacementId(null);
       setError(null);
       setIsProcessing(true);
 
@@ -278,7 +340,11 @@ export default function Home() {
             // Update existing replacement
             return prev.map((r) =>
               r.faceId === faceId
-                ? { ...r, emoji: selectedEmoji, emojiUrl: result.url }
+                ? {
+                    ...r,
+                    emoji: selectedEmoji,
+                    emojiUrl: result.url,
+                  }
                 : r
             );
           } else {
@@ -294,6 +360,7 @@ export default function Home() {
                 opacity: emojiSettings.opacity,
                 flipX: emojiSettings.flipX,
                 flipY: emojiSettings.flipY,
+                isCustom: false,
               },
             ];
           }
@@ -317,7 +384,27 @@ export default function Home() {
   // Reset all replacements
   const handleReset = useCallback(() => {
     setReplacements([]);
+    setActiveReplacementId(null);
   }, []);
+
+  const handleInspectFace = useCallback((faceId: string) => {
+    const target = replacements.find((replacement) => replacement.faceId === faceId);
+    if (!target) {
+      setToastMessage('请先为该人脸选择表情，再进行微调');
+      setIsToastVisible(true);
+      return;
+    }
+
+    setActiveReplacementId(faceId);
+    setIsEmojiPickerOpen(false);
+
+    if (typeof window !== 'undefined') {
+      requestAnimationFrame(() => {
+        const badge = document.querySelector<HTMLButtonElement>(`[data-face-badge="${faceId}"]`);
+        badge?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+  }, [replacements]);
 
   // Re-detect faces with new settings
   const handleRedetect = useCallback(async () => {
@@ -325,6 +412,7 @@ export default function Home() {
 
     setFaces([]);
     setReplacements([]);
+    setActiveReplacementId(null);
     setError(null);
     setIsProcessing(true);
     setProcessingMessage('正在重新检测人脸...');
@@ -369,6 +457,64 @@ export default function Home() {
       setProcessingMessage('');
     }
   }, [image, optimizedImage, detectionSettings]);
+
+  const handleInspectorUpdate = useCallback(
+    (patch: Partial<EmojiReplacement>) => {
+      if (!activeReplacement) return;
+      applyReplacementPatch(activeReplacement.faceId, patch);
+    },
+    [activeReplacement, applyReplacementPatch]
+  );
+
+  const handleInspectorReset = useCallback(() => {
+    if (!activeReplacement) return;
+
+    applyReplacementPatch(
+      activeReplacement.faceId,
+      {
+        scale: emojiSettings.scale,
+        opacity: emojiSettings.opacity,
+        flipX: emojiSettings.flipX,
+        flipY: emojiSettings.flipY,
+      },
+      { customState: false }
+    );
+
+    setToastMessage('已恢复默认表情样式');
+    setIsToastVisible(true);
+  }, [activeReplacement, emojiSettings, applyReplacementPatch]);
+
+  const handleInspectorAdopt = useCallback(() => {
+    if (!activeReplacement) return;
+
+    const nextDefaults: EmojiSettings = {
+      ...emojiSettings,
+      scale: activeReplacement.scale ?? emojiSettings.scale,
+      opacity: activeReplacement.opacity ?? emojiSettings.opacity,
+      flipX: activeReplacement.flipX ?? emojiSettings.flipX,
+      flipY: activeReplacement.flipY ?? emojiSettings.flipY,
+    };
+
+    setEmojiSettings(nextDefaults);
+
+    applyReplacementPatch(
+      activeReplacement.faceId,
+      {
+        scale: nextDefaults.scale,
+        opacity: nextDefaults.opacity,
+        flipX: nextDefaults.flipX,
+        flipY: nextDefaults.flipY,
+      },
+      { customState: false }
+    );
+
+    setToastMessage('✅ 已更新默认表情样式');
+    setIsToastVisible(true);
+  }, [activeReplacement, emojiSettings, applyReplacementPatch]);
+
+  const handleInspectorClose = useCallback(() => {
+    setActiveReplacementId(null);
+  }, []);
 
 
   // Export image
@@ -544,7 +690,13 @@ export default function Home() {
         onClose={() => setIsToastVisible(false)}
       />
 
-      <div className="max-w-3xl mx-auto flex-1 w-full">
+      <div
+        className="max-w-3xl mx-auto flex-1 w-full"
+        style={{
+          paddingBottom: inspectorPadding,
+          transition: 'padding-bottom 0.3s ease',
+        }}
+      >
         {/* Header - Duolingo Style with Privacy Badge */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -612,6 +764,8 @@ export default function Home() {
                 replacements={replacements}
                 selectedEmoji={selectedEmoji}
                 onFaceClick={handleFaceClick}
+                onInspectFace={handleInspectFace}
+                activeReplacementId={activeReplacementId}
               />
             </motion.div>
           )}
@@ -805,6 +959,41 @@ export default function Home() {
           )}
         </div>
       </div>
+      <AnimatePresence>
+        {activeReplacement && !isProcessing && (
+          <motion.div
+            key={activeReplacement.faceId}
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{
+              type: 'spring',
+              stiffness: 280,
+              damping: 30,
+            }}
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-40"
+          >
+            <div className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5">
+              <motion.div
+                layout
+                className="mb-2 mx-auto h-1.5 w-12 rounded-full bg-white/70 dark:bg-slate-500"
+              />
+              <div className="overflow-hidden rounded-[26px] border border-white/40 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl shadow-[0_20px_45px_-20px_rgba(15,23,42,0.45)]">
+                <EmojiInspector
+                  replacement={activeReplacement}
+                  defaultSettings={emojiSettings}
+                  label={activeFaceIndex >= 0 ? `Face ${activeFaceIndex + 1}` : 'Face'}
+                  onUpdate={handleInspectorUpdate}
+                  onResetToDefault={handleInspectorReset}
+                  onAdoptAsDefault={handleInspectorAdopt}
+                  onClose={handleInspectorClose}
+                  className="bg-transparent border-none shadow-none p-5 md:p-6 space-y-5"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Footer - Duolingo Style */}
       <motion.footer

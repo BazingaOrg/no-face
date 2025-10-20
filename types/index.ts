@@ -34,6 +34,7 @@ export interface EmojiReplacement {
   flipY?: boolean;
   offsetX?: number;
   offsetY?: number;
+  isCustom?: boolean;
 }
 
 // Face detection settings

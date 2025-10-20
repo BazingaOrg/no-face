@@ -11,6 +11,8 @@ interface FaceCanvasProps {
   replacements: EmojiReplacement[];
   selectedEmoji: string | null;
   onFaceClick: (faceId: string) => void;
+  onInspectFace?: (faceId: string) => void;
+  activeReplacementId?: string | null;
 }
 
 export default function FaceCanvas({
@@ -19,6 +21,8 @@ export default function FaceCanvas({
   replacements,
   selectedEmoji,
   onFaceClick,
+  onInspectFace,
+  activeReplacementId,
 }: FaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,6 +72,7 @@ export default function FaceCanvas({
     // 2. Draw face boxes
     faces.forEach((face) => {
       const isReplaced = replacements.some((r) => r.faceId === face.id);
+      const isActive = activeReplacementId === face.id;
 
       // Scale coordinates
       const x = face.box.x * scale;
@@ -76,9 +81,15 @@ export default function FaceCanvas({
       const height = face.box.height * scale;
 
       // Draw box
-      ctx.strokeStyle = isReplaced ? '#10b981' : '#3b82f6'; // green if replaced, blue otherwise
-      ctx.lineWidth = 2;
-      ctx.setLineDash(isReplaced ? [] : [5, 5]); // solid if replaced, dashed otherwise
+      if (isActive) {
+        ctx.strokeStyle = '#f97316';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = isReplaced ? '#10b981' : '#3b82f6';
+        ctx.lineWidth = 2;
+        ctx.setLineDash(isReplaced ? [] : [5, 5]);
+      }
       ctx.strokeRect(x, y, width, height);
 
       // Draw checkmark if replaced
@@ -87,13 +98,6 @@ export default function FaceCanvas({
         ctx.font = '16px sans-serif';
         ctx.fillText('✓', x + width - 20, y + 20);
       }
-
-      // Add face number
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
-      ctx.fillRect(x, y - 25, 60, 25);
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillText(`Face ${faces.indexOf(face) + 1}`, x + 5, y - 8);
     });
 
     // 3. Draw emoji replacements
@@ -187,7 +191,7 @@ export default function FaceCanvas({
       };
       emojiImg.src = replacement.emojiUrl;
     });
-  }, [image, faces, replacements, scale, canvasSize]);
+  }, [image, faces, replacements, scale, canvasSize, activeReplacementId]);
 
   // Handle canvas click to select face
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -231,17 +235,64 @@ export default function FaceCanvas({
       transition={{ duration: 0.3 }}
       className="w-full flex justify-center"
     >
-      <canvas
-        ref={canvasRef}
-        width={canvasSize.width}
-        height={canvasSize.height}
-        onClick={handleCanvasClick}
-        className="border-2 border-gray-300 dark:border-slate-600 rounded-2xl shadow-md cursor-pointer"
+      <div
+        className="relative"
         style={{
-          maxWidth: '100%',
-          height: 'auto',
+          width: canvasSize.width || '100%',
+          height: canvasSize.height || 'auto',
         }}
-      />
+      >
+        <canvas
+          ref={canvasRef}
+          width={canvasSize.width}
+          height={canvasSize.height}
+          onClick={handleCanvasClick}
+          className="border-2 border-gray-300 dark:border-slate-600 rounded-2xl shadow-md cursor-pointer"
+          style={{
+            width: canvasSize.width || '100%',
+            height: canvasSize.height || 'auto',
+            display: 'block',
+          }}
+        />
+
+        {onInspectFace && canvasSize.width > 0 && canvasSize.height > 0 && (
+          <div className="absolute inset-0 pointer-events-none">
+            {faces.map((face, index) => {
+              const top = Math.max(face.box.y * scale - 32, 8);
+              const left = Math.max(face.box.x * scale - 8, 8);
+              const hasReplacement = replacements.some((r) => r.faceId === face.id);
+              const isActive = activeReplacementId === face.id;
+
+              return (
+                <button
+                  key={face.id}
+                  type="button"
+                  data-face-badge={face.id}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onInspectFace(face.id);
+                  }}
+                  className={`pointer-events-auto absolute inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isActive
+                      ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white'
+                      : hasReplacement
+                        ? 'bg-white/95 dark:bg-slate-900/85 text-gray-700 dark:text-gray-100 border border-blue-400/70 dark:border-slate-600 hover:scale-105'
+                        : 'bg-white/80 dark:bg-slate-900/70 text-gray-500 dark:text-gray-400 border border-dashed border-blue-300/60 dark:border-slate-600/60'
+                  }`}
+                  style={{
+                    top,
+                    left,
+                  }}
+                  title={hasReplacement ? '微调当前表情' : '先替换后再微调'}
+                >
+                  <span>Face {index + 1}</span>
+                  {hasReplacement && <span aria-hidden>⚙️</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 }

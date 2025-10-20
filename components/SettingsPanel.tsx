@@ -184,6 +184,12 @@ export default function SettingsPanel({
               )}
             </div>
 
+            {hasReplacements && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 font-medium">
+                单独微调：点击画布上的 Face 标签即可为该表情打开微调抽屉
+              </p>
+            )}
+
 
             {/* Emoji Scale */}
             <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
