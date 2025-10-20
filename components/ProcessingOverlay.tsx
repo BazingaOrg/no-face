@@ -38,16 +38,38 @@ export default function ProcessingOverlay({ message, hint }: ProcessingOverlayPr
         </motion.div>
 
         {/* Message */}
-        <p className="text-xl font-black text-gray-800 dark:text-gray-100 text-center mb-2">
+        <motion.p
+          key={message}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="text-xl font-black text-gray-800 dark:text-gray-100 text-center mb-2"
+        >
           {message}
-        </p>
+        </motion.p>
 
         {/* Hint */}
         {hint && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+          <motion.p
+            key={hint}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.1, ease: 'easeOut' }}
+            className="text-sm text-gray-500 dark:text-gray-400 text-center"
+          >
             {hint}
-          </p>
+          </motion.p>
         )}
+
+        {/* Scanning bar */}
+        <div className="relative mt-5 h-2 w-full rounded-full bg-blue-100 dark:bg-slate-700/80 overflow-hidden">
+          <motion.span
+            aria-hidden
+            className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-blue-400/60 via-blue-500/80 to-blue-400/60"
+            animate={{ x: ['-60%', '140%'] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </div>
 
         {/* Animated Progress Dots */}
         <div className="flex justify-center gap-2 mt-4">
@@ -71,4 +93,3 @@ export default function ProcessingOverlay({ message, hint }: ProcessingOverlayPr
     </motion.div>
   );
 }
-

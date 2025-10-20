@@ -37,8 +37,8 @@ export default function SettingsPanel({
           whileTap={{ scale: 0.99 }}
           className={`w-full py-3 px-5 text-gray-800 dark:text-gray-100 font-black text-base flex items-center justify-between transition-all duration-300 ${
             isOpen
-              ? 'bg-gray-50 dark:bg-slate-750 border-b-2 border-gray-200 dark:border-slate-700'
-              : 'hover:bg-gray-50 dark:hover:bg-slate-750'
+              ? 'bg-gray-50 dark:bg-slate-800 border-b-2 border-gray-200 dark:border-slate-700'
+              : 'hover:bg-gray-50 dark:hover:bg-slate-700'
           }`}
         >
           <span className="flex items-center gap-2">
