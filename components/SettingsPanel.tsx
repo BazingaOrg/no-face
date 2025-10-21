@@ -2,11 +2,12 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { DetectionSettings } from '@/types';
+import { DetectionSettings, EmojiSettings } from '@/types';
 
 interface SettingsPanelProps {
   detectionSettings: DetectionSettings;
   onDetectionChange: (settings: DetectionSettings) => void;
+  onEmojiChange: (settings: EmojiSettings) => void;
   isOpen: boolean;
   onToggle: () => void;
   hasReplacements?: boolean;
@@ -16,6 +17,7 @@ interface SettingsPanelProps {
 export default function SettingsPanel({
   detectionSettings,
   onDetectionChange,
+  onEmojiChange,
   isOpen,
   onToggle,
   hasReplacements = false,
@@ -175,7 +177,7 @@ export default function SettingsPanel({
 
           {/* Divider */}
           <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-            <div className="rounded-3xl bg-white/70 dark:bg-slate-900/50 backdrop-blur-md border border-white/60 dark:border-slate-800/40 shadow-lg p-4 md:p-5">
+            <div className="glass-card p-4 md:p-5">
               <div className="flex items-center gap-3">
                 <span className="text-2xl" aria-hidden>
                   😀
@@ -206,7 +208,7 @@ export default function SettingsPanel({
               }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-auto py-2.5 px-4 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 dark:from-slate-600 dark:to-slate-700 dark:hover:from-slate-700 dark:hover:to-slate-800 text-white rounded-2xl font-bold text-sm shadow-md transition-all border-b-4 border-gray-700 dark:border-slate-900 active:border-b-0 active:mt-1"
+              className="gradient-action bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 dark:from-slate-600 dark:to-slate-700 dark:hover:from-slate-700 dark:hover:to-slate-800 text-white border-gray-700 dark:border-slate-900"
             >
               🔄 恢复默认设置
             </motion.button>

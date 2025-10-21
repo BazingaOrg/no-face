@@ -19,8 +19,6 @@ import {
   ModelLoadingState 
 } from '@/types';
 import { 
-  detectFacesWithLandmarks, 
-  areLandmarksAvailable,
   loadSSDModel,
   loadTinyModel,
   isModelLoaded,
@@ -29,11 +27,12 @@ import {
 import { getTwemojiUrl, preloadEmojiWithFallback } from '@/lib/twemoji';
 import { calculateEmojiSize, applyUserOffsets } from '@/lib/emojiRenderUtils';
 import { 
-  optimizeImageForDetection, 
-  mapCoordinatesToOriginal,
+  optimizeImageForDetection,
   getImageSizeCategory,
   type OptimizedImage
 } from '@/utils/imageOptimization';
+import { runFaceDetection } from '@/lib/runFaceDetection';
+import { useInspectorActions } from '@/hooks/useInspectorActions';
 
 export default function Home() {
   // State management
@@ -118,6 +117,23 @@ export default function Home() {
     },
     []
   );
+
+  const {
+    handleUpdate: handleInspectorUpdate,
+    handleResetToDefault: handleInspectorReset,
+    handleAdoptAsDefault: handleInspectorAdopt,
+    handleApplyToAll: handleInspectorApplyToAll,
+    handleClose: handleInspectorClose,
+  } = useInspectorActions({
+    activeReplacement,
+    emojiSettings,
+    applyReplacementPatch,
+    setEmojiSettings,
+    setReplacements,
+    setToastMessage,
+    setIsToastVisible,
+    setActiveReplacementId,
+  });
 
   useEffect(() => {
     if (!activeReplacementId) return;
@@ -276,30 +292,23 @@ export default function Home() {
         // Add small delay to let UI update
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        // Detect faces with landmarks if available
-        const detectedFaces = await detectFacesWithLandmarks(imageToDetect, detectionSettings);
-        
-        // Map coordinates back to original image if scaled
-        const mappedFaces = scale < 1
-          ? detectedFaces.map(face => ({
-              ...face,
-              box: mapCoordinatesToOriginal(face.box, scale),
-            }))
-          : detectedFaces;
+        const detectionResult = await runFaceDetection({
+          input: imageToDetect,
+          settings: detectionSettings,
+          scale,
+        });
 
-        // Check if landmarks are available
-        const landmarksAvailable = areLandmarksAvailable();
-        setHasLandmarks(landmarksAvailable);
+        setHasLandmarks(detectionResult.hasLandmarks);
 
-        if (mappedFaces.length === 0) {
+        if (detectionResult.isEmpty) {
           setError('🙈 没找到人脸，试试降低灵敏度');
         } else {
           // Performance warning for too many faces
-          if (mappedFaces.length > 50) {
-            setToastMessage(`🤯 发现 ${mappedFaces.length} 张脸，稍等我慢慢处理`);
+          if (detectionResult.faceCount > 50) {
+            setToastMessage(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
             setIsToastVisible(true);
           }
-          setFaces(mappedFaces);
+          setFaces(detectionResult.faces);
         }
       } catch (error) {
         console.error('人脸检测失败:', error);
@@ -425,29 +434,23 @@ export default function Home() {
       // Add small delay to let UI update
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      const detectedFaces = await detectFacesWithLandmarks(imageToDetect, detectionSettings);
-      
-      // Map coordinates back to original image if scaled
-      const mappedFaces = scale < 1
-        ? detectedFaces.map(face => ({
-            ...face,
-            box: mapCoordinatesToOriginal(face.box, scale),
-          }))
-        : detectedFaces;
-      
-      // Check if landmarks are available
-      const landmarksAvailable = areLandmarksAvailable();
-      setHasLandmarks(landmarksAvailable);
+      const detectionResult = await runFaceDetection({
+        input: imageToDetect,
+        settings: detectionSettings,
+        scale,
+      });
 
-      if (mappedFaces.length === 0) {
+      setHasLandmarks(detectionResult.hasLandmarks);
+
+      if (detectionResult.isEmpty) {
         setError('🙈 没找到人脸，试试降低灵敏度');
       } else {
         // Performance warning for too many faces
-        if (mappedFaces.length > 50) {
-          setToastMessage(`🤯 发现 ${mappedFaces.length} 张脸，稍等我慢慢处理`);
+        if (detectionResult.faceCount > 50) {
+          setToastMessage(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
           setIsToastVisible(true);
         }
-        setFaces(mappedFaces);
+        setFaces(detectionResult.faces);
       }
     } catch (error) {
       console.error('重新检测失败:', error);
@@ -457,87 +460,6 @@ export default function Home() {
       setProcessingMessage('');
     }
   }, [image, optimizedImage, detectionSettings]);
-
-  const handleInspectorUpdate = useCallback(
-    (patch: Partial<EmojiReplacement>) => {
-      if (!activeReplacement) return;
-      applyReplacementPatch(activeReplacement.faceId, patch);
-    },
-    [activeReplacement, applyReplacementPatch]
-  );
-
-  const handleInspectorReset = useCallback(() => {
-    if (!activeReplacement) return;
-
-    applyReplacementPatch(
-      activeReplacement.faceId,
-      {
-        scale: emojiSettings.scale,
-        opacity: emojiSettings.opacity,
-        flipX: emojiSettings.flipX,
-        flipY: emojiSettings.flipY,
-      },
-      { customState: false }
-    );
-
-    setToastMessage('🌟 样式回到默认啦');
-    setIsToastVisible(true);
-  }, [activeReplacement, emojiSettings, applyReplacementPatch]);
-
-  const handleInspectorAdopt = useCallback(() => {
-    if (!activeReplacement) return;
-
-    const nextDefaults: EmojiSettings = {
-      ...emojiSettings,
-      scale: activeReplacement.scale ?? emojiSettings.scale,
-      opacity: activeReplacement.opacity ?? emojiSettings.opacity,
-      flipX: activeReplacement.flipX ?? emojiSettings.flipX,
-      flipY: activeReplacement.flipY ?? emojiSettings.flipY,
-    };
-
-    setEmojiSettings(nextDefaults);
-
-    applyReplacementPatch(
-      activeReplacement.faceId,
-      {
-        scale: nextDefaults.scale,
-        opacity: nextDefaults.opacity,
-        flipX: nextDefaults.flipX,
-        flipY: nextDefaults.flipY,
-      },
-      { customState: false }
-    );
-
-    setToastMessage('✅ 默认样式已更新');
-    setIsToastVisible(true);
-  }, [activeReplacement, emojiSettings, applyReplacementPatch]);
-
-  const handleInspectorApplyToAll = useCallback(() => {
-    if (!activeReplacement) return;
-
-    const nextScale = activeReplacement.scale ?? emojiSettings.scale;
-    const nextOpacity = activeReplacement.opacity ?? emojiSettings.opacity;
-    const nextFlipX = activeReplacement.flipX ?? emojiSettings.flipX;
-    const nextFlipY = activeReplacement.flipY ?? emojiSettings.flipY;
-
-    setReplacements((prev) =>
-      prev.map((replacement) => ({
-        ...replacement,
-        scale: nextScale,
-        opacity: nextOpacity,
-        flipX: nextFlipX,
-        flipY: nextFlipY,
-        isCustom: true,
-      }))
-    );
-
-    setToastMessage('🚀 全部表情同步完成');
-    setIsToastVisible(true);
-  }, [activeReplacement, emojiSettings, setReplacements, setToastMessage, setIsToastVisible]);
-
-  const handleInspectorClose = useCallback(() => {
-    setActiveReplacementId(null);
-  }, []);
 
 
   // Export image
@@ -748,7 +670,7 @@ export default function Home() {
           {/* Title with Privacy Badge */}
           <div className="relative inline-block">
             {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight shimmer-text">
+            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight shimmer-text bg-clip-text">
               カオナシ
             </h1>
 
@@ -950,6 +872,7 @@ export default function Home() {
             >
               <SettingsPanel
                 detectionSettings={detectionSettings}
+                onEmojiChange={setEmojiSettings}
                 onDetectionChange={setDetectionSettings}
                 isOpen={isSettingsPanelOpen}
                 onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
@@ -968,6 +891,7 @@ export default function Home() {
             >
               <SettingsPanel
                 detectionSettings={detectionSettings}
+                onEmojiChange={setEmojiSettings}
                 onDetectionChange={setDetectionSettings}
                 isOpen={isSettingsPanelOpen}
                 onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}

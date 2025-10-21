@@ -233,7 +233,7 @@ export default function EmojiInspector({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onAdoptAsDefault}
-          className="min-w-[130px] py-2.5 px-4 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-2xl font-bold text-sm shadow-md transition-all border-b-4 border-green-600 active:border-b-0 active:mt-1"
+          className="gradient-action bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white border-green-600"
         >
           设为默认
         </motion.button>
@@ -242,7 +242,7 @@ export default function EmojiInspector({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onApplyToAll}
-          className="min-w-[130px] py-2.5 px-4 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-2xl font-bold text-sm shadow-md transition-all border-b-4 border-orange-600 active:border-b-0 active:mt-1"
+          className="gradient-action bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white border-orange-600"
         >
           全部应用
         </motion.button>
@@ -251,7 +251,7 @@ export default function EmojiInspector({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onResetToDefault}
-          className="min-w-[130px] py-2.5 px-4 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-2xl font-bold text-sm shadow-md transition-all border-b-4 border-gray-700 active:border-b-0 active:mt-1"
+          className="gradient-action bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white border-gray-700"
         >
           恢复默认值
         </motion.button>
@@ -260,7 +260,7 @@ export default function EmojiInspector({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onClose}
-          className="min-w-[130px] py-2.5 px-4 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-2xl font-bold text-sm shadow-md transition-all border-b-4 border-blue-600 active:border-b-0 active:mt-1"
+          className="gradient-action bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white border-blue-600"
         >
           完成
         </motion.button>

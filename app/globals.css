@@ -38,35 +38,53 @@ body {
   position: relative;
   display: inline-block;
   overflow: hidden;
+  --shimmer-base: #1f2937;
+  background-image: linear-gradient(
+    120deg,
+    var(--shimmer-base) 0%,
+    var(--shimmer-base) 45%,
+    rgba(255, 255, 255, 0.85) 50%,
+    var(--shimmer-base) 55%,
+    var(--shimmer-base) 100%
+  );
+  background-size: 280% 100%;
+  background-position: 200% 0;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer-sweep 16s linear infinite;
 }
 
-.shimmer-text::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -45%;
-  width: 35%;
-  height: 100%;
-  background: linear-gradient(
+.dark .shimmer-text {
+  --shimmer-base: #f8fafc;
+  background-image: linear-gradient(
     120deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.6) 50%,
-    rgba(255, 255, 255, 0) 100%
+    rgba(248, 250, 252, 0.85) 0%,
+    rgba(248, 250, 252, 0.85) 45%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(248, 250, 252, 0.85) 55%,
+    rgba(248, 250, 252, 0.85) 100%
   );
-  transform: skewX(-20deg);
-  pointer-events: none;
-  mix-blend-mode: screen;
-  animation: shimmer-sweep 2.8s ease-in-out infinite;
 }
 
 @keyframes shimmer-sweep {
   0% {
-    left: -60%;
-  }
-  50% {
-    left: 20%;
+    background-position: 200% 0;
   }
   100% {
-    left: 105%;
+    background-position: -260% 0;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-[26px] border border-white/60 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl shadow-[0_20px_38px_-22px_rgba(15,23,42,0.45)];
+  }
+
+  .glass-card {
+    @apply rounded-3xl bg-white/70 dark:bg-slate-900/50 backdrop-blur-md border border-white/60 dark:border-slate-800/40 shadow-lg;
+  }
+
+  .gradient-action {
+    @apply min-w-[130px] py-2.5 px-4 rounded-2xl font-bold text-sm shadow-md transition-all border-b-4 active:border-b-0 active:mt-1;
   }
 }
