@@ -20,6 +20,10 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
   - [x] Emoji opacity control
   - [-] Position offset controls (X/Y) - **已移除 (Removed in v0.2.0)**
   - [x] Flip controls (horizontal/vertical)
+- [x] Per-face inspector bottom sheet
+  - [x] Drag-to-close handle with velocity threshold
+  - [x] Apply-to-all & adopt-as-default actions
+  - [x] Frame-synchronised slider updates for smoother previews
 - [x] Emoji rendering optimization
   - [x] Default to SVG format for best quality
   - [x] Fallback to native emoji when CDN fails
@@ -103,6 +107,7 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 - [ ] **Individual face editing** - 个人脸编辑功能
   - [x] Click to apply emoji to specific face - 点击应用表情到特定人脸
   - [x] Flip emoji (horizontal/vertical) - 表情符号翻转
+  - [x] Bottom sheet inspector with fine-tuning & drag-to-close - 底部抽屉微调与拖拽关闭
   - [ ] **Drag to reposition emoji per face** - 拖拽重新定位（推荐先实现）
     - **Priority**: 高 - 用户最需要的交互功能
     - **Implementation**: Canvas drag events + position updates

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import type { PanInfo } from 'framer-motion';
 import NextImage from 'next/image';
 import ImageUploader from '@/components/ImageUploader';
 import FaceCanvas from '@/components/FaceCanvas';
@@ -134,6 +136,26 @@ export default function Home() {
     setIsToastVisible,
     setActiveReplacementId,
   });
+
+  const inspectorDragControls = useDragControls();
+
+  const handleInspectorDragEnd = useCallback(
+    (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      if (info.offset.y > 120 || info.velocity.y > 600) {
+        handleInspectorClose();
+      }
+    },
+    [handleInspectorClose]
+  );
+
+  const handleInspectorHandlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      inspectorDragControls.start(event.nativeEvent);
+    },
+    [inspectorDragControls]
+  );
 
   useEffect(() => {
     if (!activeReplacementId) return;
@@ -691,6 +713,40 @@ export default function Home() {
 
         {/* Main content */}
         <div className="space-y-4">
+          {/* Settings Panel - Show before image upload */}
+          {!image && !isProcessing && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <SettingsPanel
+                detectionSettings={detectionSettings}
+                onEmojiChange={setEmojiSettings}
+                onDetectionChange={setDetectionSettings}
+                isOpen={isSettingsPanelOpen}
+                onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
+              />
+            </motion.div>
+          )}
+
+          {/* Settings Panel - Show after image upload when faces detected */}
+          {image && faces.length > 0 && !isProcessing && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <SettingsPanel
+                detectionSettings={detectionSettings}
+                onEmojiChange={setEmojiSettings}
+                onDetectionChange={setDetectionSettings}
+                isOpen={isSettingsPanelOpen}
+                onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
+              />
+            </motion.div>
+          )}
+
           {/* Image uploader */}
           {!image && (
             <ImageUploader onImageLoad={handleImageLoad} disabled={isProcessing} />
@@ -862,44 +918,6 @@ export default function Home() {
               </motion.button>
             </motion.div>
           )}
-
-          {/* Settings Panel - Show after image upload when faces detected */}
-          {image && faces.length > 0 && !isProcessing && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <SettingsPanel
-                detectionSettings={detectionSettings}
-                onEmojiChange={setEmojiSettings}
-                onDetectionChange={setDetectionSettings}
-                isOpen={isSettingsPanelOpen}
-                onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
-                hasReplacements={replacements.length > 0}
-                hasImage={!!image}
-              />
-            </motion.div>
-          )}
-
-          {/* Settings Panel - Show before image upload */}
-          {!image && !isProcessing && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <SettingsPanel
-                detectionSettings={detectionSettings}
-                onEmojiChange={setEmojiSettings}
-                onDetectionChange={setDetectionSettings}
-                isOpen={isSettingsPanelOpen}
-                onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
-                hasReplacements={false}
-                hasImage={false}
-              />
-            </motion.div>
-          )}
         </div>
       </div>
       <AnimatePresence>
@@ -916,10 +934,25 @@ export default function Home() {
             }}
             className="pointer-events-none fixed inset-x-0 bottom-0 z-40"
           >
-            <div className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5">
-              <motion.div
+            <motion.div
+              className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5"
+              drag="y"
+              dragControls={inspectorDragControls}
+              dragListener={false}
+              dragConstraints={{ top: 0, bottom: 320 }}
+              dragElastic={{ top: 0.15, bottom: 0.4 }}
+              dragMomentum={false}
+              dragSnapToOrigin
+              onDragEnd={handleInspectorDragEnd}
+              style={{ touchAction: 'none' }}
+            >
+              <motion.button
+                type="button"
                 layout
-                className="mb-2 mx-auto h-1.5 w-12 rounded-full bg-white/70 dark:bg-slate-500"
+                onPointerDown={handleInspectorHandlePointerDown}
+                whileTap={{ scaleX: 1.05 }}
+                className="mb-2 mx-auto block h-1.5 w-12 rounded-full bg-white/70 dark:bg-slate-500 cursor-grab active:cursor-grabbing"
+                aria-label="拖动关闭微调面板"
               />
               <div className="overflow-hidden rounded-[26px] border border-white/40 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl shadow-[0_20px_45px_-20px_rgba(15,23,42,0.45)]">
                 <EmojiInspector
@@ -934,7 +967,7 @@ export default function Home() {
                   className="bg-transparent border-none shadow-none p-5 md:p-6 space-y-5"
                 />
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

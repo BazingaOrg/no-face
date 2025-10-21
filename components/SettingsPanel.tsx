@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { DetectionSettings, EmojiSettings } from '@/types';
 
@@ -10,8 +9,6 @@ interface SettingsPanelProps {
   onEmojiChange: (settings: EmojiSettings) => void;
   isOpen: boolean;
   onToggle: () => void;
-  hasReplacements?: boolean;
-  hasImage?: boolean;
 }
 
 export default function SettingsPanel({
@@ -20,15 +17,7 @@ export default function SettingsPanel({
   onEmojiChange,
   isOpen,
   onToggle,
-  hasReplacements = false,
-  hasImage = false,
 }: SettingsPanelProps) {
-  const emojiTips = useMemo(() => {
-    if (!hasImage) return '上传图片后，点击 Face 徽章即可微调 🎯';
-    if (!hasReplacements) return '先替换一个表情，再去徽章里微调吧 ✨';
-    return '想批量同步？在徽章抽屉里用“全部应用”即可 🚀';
-  }, [hasImage, hasReplacements]);
-
   return (
     <div className="w-full">
       {/* Unified card container - Duolingo Style */}
@@ -173,21 +162,6 @@ export default function SettingsPanel({
 
             {/* Performance Mode - Hidden, defaults to 416 (balanced mode) */}
             {/* Auto-set inputSize to 416 when switching to Tiny Face Detector */}
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-            <div className="glass-card p-4 md:p-5">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl" aria-hidden>
-                  😀
-                </span>
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-gray-800 dark:text-gray-100">表情微调搬家啦</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{emojiTips}</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Reset to Defaults */}

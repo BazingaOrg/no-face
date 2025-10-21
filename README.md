@@ -15,8 +15,9 @@
 - 📤 **Multiple upload methods** - Drag & drop, click to select, or use camera on mobile
 - 🔍 **Automatic face detection** - Powered by face-api.js with dual detection modes
 - 😀 **Rich emoji picker** - 3600+ emojis with English & Chinese keyword search
-- 🎯 **Flexible editing** - Click to replace individual faces or apply to all at once
-- ⚙️ **Advanced settings** - Adjust detection sensitivity, emoji scale, opacity, and position
+- 🎯 **Flexible editing** - Click to replace individual faces, open the inspector, or apply changes to everyone at once
+- 🧲 **Per-face inspector** - Bottom sheet with precise scale/opacity controls, quick default updates, and a drag handle to close
+- ⚙️ **Advanced settings** - Adjust detection sensitivity and global defaults with instant visual feedback
 - 💾 **High-quality export** - Download images in original resolution (PNG)
 - 📱 **Responsive design** - Works seamlessly on desktop, tablet, and mobile
 - 🔒 **Privacy-focused** - All processing happens in your browser, no server uploads
@@ -59,7 +60,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 2. **Detect** - App automatically detects all faces
 3. **Choose** - Pick an emoji from the picker or use random button
 4. **Replace** - Click on face boxes to apply selected emoji
-5. **Adjust** - Fine-tune with settings panel (scale, opacity, position)
+5. **Adjust** - Tap Face badges to open the inspector, fine-tune scale/opacity, or update defaults; drag the handle down to dismiss
 6. **Export** - Download your creation in original quality
 
 ### 🛠️ Tech Stack
@@ -82,9 +83,15 @@ no-face/
 │   ├── ImageUploader.tsx     # Drag & drop + camera
 │   ├── FaceCanvas.tsx        # Interactive face detection canvas
 │   ├── EmojiSelector.tsx     # Emoji picker with search
-│   └── SettingsPanel.tsx     # Detection & emoji settings
+│   ├── EmojiInspector.tsx    # Per-face micro-tuning bottom sheet
+│   └── SettingsPanel.tsx     # Detection settings card
+├── hooks/
+│   ├── useFaceBadgeLayout.ts         # Badge measurement & positioning helper
+│   ├── useFrameDebouncedCallback.ts  # Frame-synchronised debounce hook
+│   └── useInspectorActions.ts        # Inspector action aggregation
 ├── lib/
 │   ├── faceApi.ts            # face-api.js wrapper
+│   ├── runFaceDetection.ts   # Normalised detection pipeline
 │   ├── twemoji.ts            # Twemoji CDN utilities
 │   ├── emojiSearch.ts        # Chinese keyword search
 │   └── emojiRenderUtils.ts   # Emoji sizing & positioning
@@ -165,8 +172,9 @@ MIT License - free for personal and commercial use.
 - 📤 **多种上传方式** - 拖放上传、点击选择或移动端相机拍摄
 - 🔍 **自动人脸检测** - 基于 face-api.js 的双模式检测
 - 😀 **丰富表情库** - 3600+ Emoji，支持中英文关键词搜索
-- 🎯 **灵活编辑** - 单击替换单个人脸或一键应用到所有人脸
-- ⚙️ **高级设置** - 调整检测灵敏度、Emoji 大小、透明度和位置
+- 🎯 **灵活编辑** - 单击替换单张人脸、打开微调抽屉或一键应用给所有人
+- 🧲 **微调抽屉** - 底部抽屉可精调大小/透明度、更新默认值，并支持拖拽手柄关闭
+- ⚙️ **高级设置** - 即时调节检测灵敏度与全局默认表情配置
 - 💾 **高质量导出** - 下载原始分辨率图片（PNG 格式）
 - 📱 **响应式设计** - 完美适配桌面、平板和移动设备
 - 🔒 **隐私保护** - 所有处理在浏览器本地完成，无服务器上传
@@ -209,7 +217,7 @@ npm start
 2. **检测人脸** - 应用自动检测所有人脸
 3. **选择表情** - 从表情选择器中挑选 Emoji 或使用随机按钮
 4. **替换人脸** - 点击人脸框应用选中的 Emoji
-5. **微调设置** - 通过设置面板调整大小、透明度、位置
+5. **微调设置** - 点击 Face 标签打开微调抽屉，调节大小/透明度或更新默认值，向下拖动手柄即可关闭
 6. **导出图片** - 下载原始质量的作品
 
 ### 🛠️ 技术栈
