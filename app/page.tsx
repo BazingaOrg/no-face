@@ -186,16 +186,16 @@ export default function Home() {
       // Check if model is loaded
       if (detector === 'tiny_face_detector' && !isModelLoaded('tinyFaceDetector')) {
         // Show toast notification
-        setToastMessage('正在加载 Tiny Face Detector...');
+        setToastMessage('⏳ 正在唤醒 Tiny 模型');
         setIsToastVisible(true);
         
         try {
           await loadTinyModel(false); // Load with progress
-          setToastMessage('✅ 检测器已就绪');
+          setToastMessage('✅ 检测器上线啦');
           setIsToastVisible(true);
         } catch (error) {
           console.error('检测器加载失败:', error);
-          setToastMessage('❌ 检测器加载失败');
+          setToastMessage('❌ 模型加载没成功');
           setIsToastVisible(true);
         }
       }
@@ -246,11 +246,11 @@ export default function Home() {
         // Determine processing message based on file size
         const sizeCategory = fileSize ? getImageSizeCategory(fileSize) : 'small';
         if (sizeCategory === 'large') {
-          setProcessingMessage('正在优化大图片...');
+          setProcessingMessage('⚙️ 正在瘦身图片');
         } else if (sizeCategory === 'medium') {
-          setProcessingMessage('正在处理图片...');
+          setProcessingMessage('🌀 图片处理中');
         } else {
-          setProcessingMessage('正在检测人脸...');
+          setProcessingMessage('🔍 正在找脸');
         }
 
         // Optimize image for detection if needed
@@ -258,7 +258,7 @@ export default function Home() {
         let scale = 1;
 
         if (img.naturalWidth > 1920) {
-          setProcessingMessage('正在优化图片以加快处理速度...');
+          setProcessingMessage('⚙️ 正在瘦身图片');
           
           // Add small delay to let UI update
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -271,7 +271,7 @@ export default function Home() {
           setOptimizedImage(null);
         }
 
-        setProcessingMessage('正在检测人脸...');
+        setProcessingMessage('🔍 正在找脸');
         
         // Add small delay to let UI update
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -292,18 +292,18 @@ export default function Home() {
         setHasLandmarks(landmarksAvailable);
 
         if (mappedFaces.length === 0) {
-          setError('未检测到人脸。💡 提示：可以在下方"⚙️ 高级设置"中降低检测灵敏度试试');
+          setError('🙈 没找到人脸，试试降低灵敏度');
         } else {
           // Performance warning for too many faces
           if (mappedFaces.length > 50) {
-            setToastMessage(`⚠️ 检测到 ${mappedFaces.length} 张人脸，处理可能较慢。建议裁剪图片或提高检测灵敏度。`);
+            setToastMessage(`🤯 发现 ${mappedFaces.length} 张脸，稍等我慢慢处理`);
             setIsToastVisible(true);
           }
           setFaces(mappedFaces);
         }
       } catch (error) {
         console.error('人脸检测失败:', error);
-        setError('检测失败，请重试或检查网络连接');
+        setError('😵 检测没成功，重试看看？');
       } finally {
         setIsProcessing(false);
         setProcessingMessage('');
@@ -390,7 +390,7 @@ export default function Home() {
   const handleInspectFace = useCallback((faceId: string) => {
     const target = replacements.find((replacement) => replacement.faceId === faceId);
     if (!target) {
-      setToastMessage('请先为该人脸选择表情，再进行微调');
+      setToastMessage('😶 先替换表情再微调吧');
       setIsToastVisible(true);
       return;
     }
@@ -415,7 +415,7 @@ export default function Home() {
     setActiveReplacementId(null);
     setError(null);
     setIsProcessing(true);
-    setProcessingMessage('正在重新检测人脸...');
+    setProcessingMessage('🔁 正在重新找脸');
 
     try {
       // Use optimized image if available
@@ -440,18 +440,18 @@ export default function Home() {
       setHasLandmarks(landmarksAvailable);
 
       if (mappedFaces.length === 0) {
-        setError('未检测到人脸。💡 提示：可以在下方"⚙️ 高级设置"中降低检测灵敏度试试');
+        setError('🙈 没找到人脸，试试降低灵敏度');
       } else {
         // Performance warning for too many faces
         if (mappedFaces.length > 50) {
-          setToastMessage(`⚠️ 检测到 ${mappedFaces.length} 张人脸，处理可能较慢。建议裁剪图片或提高检测灵敏度。`);
+          setToastMessage(`🤯 发现 ${mappedFaces.length} 张脸，稍等我慢慢处理`);
           setIsToastVisible(true);
         }
         setFaces(mappedFaces);
       }
     } catch (error) {
       console.error('重新检测失败:', error);
-      setError('检测失败，请重试或检查网络连接');
+      setError('😵 检测没成功，重试看看？');
     } finally {
       setIsProcessing(false);
       setProcessingMessage('');
@@ -480,7 +480,7 @@ export default function Home() {
       { customState: false }
     );
 
-    setToastMessage('已恢复默认表情样式');
+    setToastMessage('🌟 样式回到默认啦');
     setIsToastVisible(true);
   }, [activeReplacement, emojiSettings, applyReplacementPatch]);
 
@@ -508,9 +508,32 @@ export default function Home() {
       { customState: false }
     );
 
-    setToastMessage('✅ 已更新默认表情样式');
+    setToastMessage('✅ 默认样式已更新');
     setIsToastVisible(true);
   }, [activeReplacement, emojiSettings, applyReplacementPatch]);
+
+  const handleInspectorApplyToAll = useCallback(() => {
+    if (!activeReplacement) return;
+
+    const nextScale = activeReplacement.scale ?? emojiSettings.scale;
+    const nextOpacity = activeReplacement.opacity ?? emojiSettings.opacity;
+    const nextFlipX = activeReplacement.flipX ?? emojiSettings.flipX;
+    const nextFlipY = activeReplacement.flipY ?? emojiSettings.flipY;
+
+    setReplacements((prev) =>
+      prev.map((replacement) => ({
+        ...replacement,
+        scale: nextScale,
+        opacity: nextOpacity,
+        flipX: nextFlipX,
+        flipY: nextFlipY,
+        isCustom: true,
+      }))
+    );
+
+    setToastMessage('🚀 全部表情同步完成');
+    setIsToastVisible(true);
+  }, [activeReplacement, emojiSettings, setReplacements, setToastMessage, setIsToastVisible]);
 
   const handleInspectorClose = useCallback(() => {
     setActiveReplacementId(null);
@@ -675,9 +698,9 @@ export default function Home() {
           <ProcessingOverlay
             message={processingMessage}
             hint={
-              processingMessage.includes('优化')
-                ? '大图片自动压缩中，导出时保持原始质量'
-                : '请稍候，正在分析图片内容...'
+              processingMessage.includes('瘦身')
+                ? '图片瘦身中，导出依旧高清'
+                : '稍等片刻，正在分析图片...'
             }
           />
         )}
@@ -725,7 +748,7 @@ export default function Home() {
           {/* Title with Privacy Badge */}
           <div className="relative inline-block">
             {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight">
+            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight shimmer-text">
               カオナシ
             </h1>
 
@@ -927,9 +950,7 @@ export default function Home() {
             >
               <SettingsPanel
                 detectionSettings={detectionSettings}
-                emojiSettings={emojiSettings}
                 onDetectionChange={setDetectionSettings}
-                onEmojiChange={setEmojiSettings}
                 isOpen={isSettingsPanelOpen}
                 onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
                 hasReplacements={replacements.length > 0}
@@ -947,9 +968,7 @@ export default function Home() {
             >
               <SettingsPanel
                 detectionSettings={detectionSettings}
-                emojiSettings={emojiSettings}
                 onDetectionChange={setDetectionSettings}
-                onEmojiChange={setEmojiSettings}
                 isOpen={isSettingsPanelOpen}
                 onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
                 hasReplacements={false}
@@ -986,6 +1005,7 @@ export default function Home() {
                   onUpdate={handleInspectorUpdate}
                   onResetToDefault={handleInspectorReset}
                   onAdoptAsDefault={handleInspectorAdopt}
+                  onApplyToAll={handleInspectorApplyToAll}
                   onClose={handleInspectorClose}
                   className="bg-transparent border-none shadow-none p-5 md:p-6 space-y-5"
                 />

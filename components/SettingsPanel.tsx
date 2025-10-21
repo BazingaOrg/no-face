@@ -1,13 +1,12 @@
 'use client';
 
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { DetectionSettings, EmojiSettings } from '@/types';
+import { DetectionSettings } from '@/types';
 
 interface SettingsPanelProps {
   detectionSettings: DetectionSettings;
-  emojiSettings: EmojiSettings;
   onDetectionChange: (settings: DetectionSettings) => void;
-  onEmojiChange: (settings: EmojiSettings) => void;
   isOpen: boolean;
   onToggle: () => void;
   hasReplacements?: boolean;
@@ -16,20 +15,26 @@ interface SettingsPanelProps {
 
 export default function SettingsPanel({
   detectionSettings,
-  emojiSettings,
   onDetectionChange,
-  onEmojiChange,
   isOpen,
   onToggle,
   hasReplacements = false,
   hasImage = false,
 }: SettingsPanelProps) {
+  const emojiTips = useMemo(() => {
+    if (!hasImage) return '上传图片后，点击 Face 徽章即可微调 🎯';
+    if (!hasReplacements) return '先替换一个表情，再去徽章里微调吧 ✨';
+    return '想批量同步？在徽章抽屉里用“全部应用”即可 🚀';
+  }, [hasImage, hasReplacements]);
+
   return (
     <div className="w-full">
       {/* Unified card container - Duolingo Style */}
-      <div className={`w-full bg-white dark:bg-slate-800 shadow-lg border-2 border-gray-200 dark:border-slate-700 overflow-hidden transition-all duration-300 ${
-        isOpen ? 'rounded-2xl' : 'rounded-2xl'
-      }`}>
+      <div
+        className={`w-full bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl shadow-[0_20px_45px_-22px_rgba(15,23,42,0.45)] border border-white/60 dark:border-slate-700/60 overflow-hidden transition-all duration-300 ${
+          isOpen ? 'rounded-[28px]' : 'rounded-[28px]'
+        }`}
+      >
         {/* Settings toggle button as card header */}
         <motion.button
           onClick={onToggle}
@@ -37,8 +42,8 @@ export default function SettingsPanel({
           whileTap={{ scale: 0.99 }}
           className={`w-full py-3 px-5 text-gray-800 dark:text-gray-100 font-black text-base flex items-center justify-between transition-all duration-300 ${
             isOpen
-              ? 'bg-gray-50 dark:bg-slate-800 border-b-2 border-gray-200 dark:border-slate-700'
-              : 'hover:bg-gray-50 dark:hover:bg-slate-700'
+              ? 'bg-white/90 dark:bg-slate-900/80 backdrop-blur-xl border-b border-white/60 dark:border-slate-700/60'
+              : 'hover:bg-white/80 dark:hover:bg-slate-800/70'
           }`}
         >
           <span className="flex items-center gap-2">
@@ -169,136 +174,18 @@ export default function SettingsPanel({
           </div>
 
           {/* Divider */}
-          <div className="border-t border-gray-200 dark:border-slate-700"></div>
-
-          {/* Emoji Settings */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                😀 表情设置
-              </h3>
-              {hasImage && !hasReplacements && (
-                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
-                  ⚠️ 需要先替换表情
+          <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+            <div className="rounded-3xl bg-white/70 dark:bg-slate-900/50 backdrop-blur-md border border-white/60 dark:border-slate-800/40 shadow-lg p-4 md:p-5">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl" aria-hidden>
+                  😀
                 </span>
-              )}
-            </div>
-
-            {hasReplacements && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 font-medium">
-                单独微调：点击画布上的 Face 标签即可为该表情打开微调抽屉
-              </p>
-            )}
-
-
-            {/* Emoji Scale */}
-            <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  表情大小
-                </label>
-                <span className="text-sm font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2.5 py-1 rounded-lg numeric-display">
-                  {Math.round(emojiSettings.scale * 100)}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.5"
-                max="2.0"
-                step="0.05"
-                value={emojiSettings.scale}
-                onChange={(e) =>
-                  onEmojiChange({
-                    ...emojiSettings,
-                    scale: parseFloat(e.target.value),
-                  })
-                }
-                disabled={hasImage && !hasReplacements}
-                className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-500"
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
-                <span>😊 较小</span>
-                <span>😆 较大</span>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-gray-800 dark:text-gray-100">表情微调搬家啦</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{emojiTips}</p>
+                </div>
               </div>
             </div>
-
-            {/* Emoji Opacity */}
-            <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  透明度
-                </label>
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg numeric-display">
-                  {Math.round(emojiSettings.opacity * 100)}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.5"
-                max="1.0"
-                step="0.01"
-                value={emojiSettings.opacity}
-                onChange={(e) =>
-                  onEmojiChange({
-                    ...emojiSettings,
-                    opacity: parseFloat(e.target.value),
-                  })
-                }
-                disabled={hasImage && !hasReplacements}
-                className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500"
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
-                <span>👻 半透明</span>
-                <span>💯 不透明</span>
-              </div>
-            </div>
-
-            {/* Flip Controls */}
-            <div className={`mb-4 ${hasImage && !hasReplacements ? 'opacity-40 pointer-events-none' : ''}`}>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                🪞 翻转
-              </label>
-              <div className="flex gap-3">
-                <motion.button
-                  onClick={() =>
-                    onEmojiChange({
-                      ...emojiSettings,
-                      flipX: !emojiSettings.flipX,
-                    })
-                  }
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={hasImage && !hasReplacements}
-                  className={`flex-1 py-3 px-4 rounded-lg text-center font-bold transition-all ${
-                    emojiSettings.flipX
-                      ? 'bg-gradient-to-r from-teal-400 to-teal-500 text-white shadow-md border-b-4 border-teal-600'
-                      : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 border-b-4 border-gray-300 dark:border-slate-600'
-                  }`}
-                >
-                  ⬌ 水平翻转
-                </motion.button>
-                <motion.button
-                  onClick={() =>
-                    onEmojiChange({
-                      ...emojiSettings,
-                      flipY: !emojiSettings.flipY,
-                    })
-                  }
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={hasImage && !hasReplacements}
-                  className={`flex-1 py-3 px-4 rounded-lg text-center font-bold transition-all ${
-                    emojiSettings.flipY
-                      ? 'bg-gradient-to-r from-teal-400 to-teal-500 text-white shadow-md border-b-4 border-teal-600'
-                      : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 border-b-4 border-gray-300 dark:border-slate-600'
-                  }`}
-                >
-                  ⬍ 垂直翻转
-                </motion.button>
-              </div>
-            </div>
-
-
           </div>
 
           {/* Reset to Defaults */}

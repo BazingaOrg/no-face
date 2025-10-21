@@ -1,7 +1,9 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { EmojiReplacement, EmojiSettings } from '@/types';
+import { useFrameDebouncedCallback } from '@/hooks/useFrameDebouncedCallback';
 
 interface EmojiInspectorProps {
   replacement: EmojiReplacement;
@@ -10,12 +12,15 @@ interface EmojiInspectorProps {
   onUpdate: (patch: Partial<EmojiReplacement>) => void;
   onResetToDefault: () => void;
   onAdoptAsDefault: () => void;
+  onApplyToAll: () => void;
   onClose: () => void;
   className?: string;
 }
 
 const SECTION_CLASS = 'space-y-3';
 const SLIDER_CLASS = 'w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500';
+const INPUT_CLASS =
+  'w-14 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors';
 
 export default function EmojiInspector({
   replacement,
@@ -24,14 +29,66 @@ export default function EmojiInspector({
   onUpdate,
   onResetToDefault,
   onAdoptAsDefault,
+  onApplyToAll,
   onClose,
   className,
 }: EmojiInspectorProps) {
+  const scheduleUpdate = useFrameDebouncedCallback(onUpdate);
   const scaleValue = replacement.scale ?? defaultSettings.scale;
   const opacityValue = replacement.opacity ?? defaultSettings.opacity;
+  const [localScale, setLocalScale] = useState(scaleValue);
+  const [localOpacity, setLocalOpacity] = useState(opacityValue);
+  const [scaleInput, setScaleInput] = useState(scaleValue.toFixed(2));
+  const [opacityInput, setOpacityInput] = useState(opacityValue.toFixed(2));
   const flipX = Boolean(replacement.flipX);
   const flipY = Boolean(replacement.flipY);
   const containerClass = className ?? 'bg-white/95 dark:bg-slate-900/80 backdrop-blur-md border border-gray-200 dark:border-slate-700 rounded-3xl shadow-xl p-5 md:p-7 space-y-5';
+
+  useEffect(() => {
+    setLocalScale(scaleValue);
+    setScaleInput(scaleValue.toFixed(2));
+  }, [scaleValue]);
+
+  useEffect(() => {
+    setLocalOpacity(opacityValue);
+    setOpacityInput(opacityValue.toFixed(2));
+  }, [opacityValue]);
+
+  const clampScale = useCallback(
+    (value: number) => {
+      if (Number.isNaN(value)) return scaleValue;
+      return Math.min(Math.max(value, 0.5), 2);
+    },
+    [scaleValue]
+  );
+
+  const clampOpacity = useCallback(
+    (value: number) => {
+      if (Number.isNaN(value)) return opacityValue;
+      return Math.min(Math.max(value, 0.5), 1);
+    },
+    [opacityValue]
+  );
+
+  const handleScaleChange = useCallback(
+    (next: number) => {
+      const clamped = clampScale(next);
+      setLocalScale(clamped);
+      setScaleInput(clamped.toFixed(2));
+      scheduleUpdate({ scale: clamped });
+    },
+    [scheduleUpdate, clampScale]
+  );
+
+  const handleOpacityChange = useCallback(
+    (next: number) => {
+      const clamped = clampOpacity(next);
+      setLocalOpacity(clamped);
+      setOpacityInput(clamped.toFixed(2));
+      scheduleUpdate({ opacity: clamped });
+    },
+    [scheduleUpdate, clampOpacity]
+  );
 
   return (
     <motion.div
@@ -58,19 +115,37 @@ export default function EmojiInspector({
 
       <div className="grid gap-6 md:grid-cols-2">
         <section className={SECTION_CLASS}>
-          <header className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">表情大小</h3>
-            <span className="text-sm font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2.5 py-0.5 rounded-lg numeric-display">
-              {Math.round(scaleValue * 100)}%
-            </span>
+          <header className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">表情大小</h3>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={0.5}
+                max={2}
+                step={0.05}
+                value={scaleInput}
+                onChange={(event) => {
+                  setScaleInput(event.target.value);
+                }}
+                onBlur={(event) => handleScaleChange(parseFloat(event.target.value))}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    handleScaleChange(parseFloat((event.target as HTMLInputElement).value));
+                  }
+                }}
+                className={INPUT_CLASS}
+                inputMode="decimal"
+              />
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">倍</span>
+            </div>
           </header>
           <input
             type="range"
             min="0.5"
             max="2.0"
             step="0.05"
-            value={scaleValue}
-            onChange={(event) => onUpdate({ scale: parseFloat(event.target.value) })}
+            value={localScale}
+            onChange={(event) => handleScaleChange(parseFloat(event.target.value))}
             className={SLIDER_CLASS}
           />
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 font-medium">
@@ -80,19 +155,37 @@ export default function EmojiInspector({
         </section>
 
         <section className={SECTION_CLASS}>
-          <header className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">透明度</h3>
-            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-lg numeric-display">
-              {Math.round(opacityValue * 100)}%
-            </span>
+          <header className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">透明度</h3>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={0.5}
+                max={1}
+                step={0.01}
+                value={opacityInput}
+                onChange={(event) => {
+                  setOpacityInput(event.target.value);
+                }}
+                onBlur={(event) => handleOpacityChange(parseFloat(event.target.value))}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    handleOpacityChange(parseFloat((event.target as HTMLInputElement).value));
+                  }
+                }}
+                className={INPUT_CLASS}
+                inputMode="decimal"
+              />
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">%</span>
+            </div>
           </header>
           <input
             type="range"
             min="0.5"
             max="1"
             step="0.01"
-            value={opacityValue}
-            onChange={(event) => onUpdate({ opacity: parseFloat(event.target.value) })}
+            value={localOpacity}
+            onChange={(event) => handleOpacityChange(parseFloat(event.target.value))}
             className={SLIDER_CLASS}
           />
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 font-medium">
@@ -143,6 +236,15 @@ export default function EmojiInspector({
           className="min-w-[130px] py-2.5 px-4 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-2xl font-bold text-sm shadow-md transition-all border-b-4 border-green-600 active:border-b-0 active:mt-1"
         >
           设为默认
+        </motion.button>
+        <motion.button
+          type="button"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onApplyToAll}
+          className="min-w-[130px] py-2.5 px-4 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-2xl font-bold text-sm shadow-md transition-all border-b-4 border-orange-600 active:border-b-0 active:mt-1"
+        >
+          全部应用
         </motion.button>
         <motion.button
           type="button"

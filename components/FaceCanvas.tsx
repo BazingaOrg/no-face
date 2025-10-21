@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { DetectedFace, EmojiReplacement } from '@/types';
 import { motion } from 'framer-motion';
 import { calculateEmojiSize, applyUserOffsets } from '@/lib/emojiRenderUtils';
+
+const DEFAULT_BADGE_SIZE = {
+  width: 120,
+  height: 38,
+};
 
 interface FaceCanvasProps {
   image: HTMLImageElement | null;
@@ -28,6 +33,86 @@ export default function FaceCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const badgeMeasurementsRef = useRef<Map<string, { width: number; height: number }>>(new Map());
+  const badgeObserversRef = useRef<Map<string, ResizeObserver>>(new Map());
+  const badgeRefCallbacksRef = useRef<
+    Map<string, (node: HTMLButtonElement | null) => void>
+  >(new Map());
+  const [, bumpMeasurementVersion] = useReducer((count: number) => count + 1, 0);
+
+  useEffect(() => {
+    const observers = badgeObserversRef.current;
+    const callbackMap = badgeRefCallbacksRef.current;
+
+    return () => {
+      observers.forEach((observer) => observer.disconnect());
+      observers.clear();
+      callbackMap.clear();
+    };
+  }, []);
+
+  const registerBadgeNode = useCallback((faceId: string, node: HTMLButtonElement | null) => {
+      const observers = badgeObserversRef.current;
+      const measurements = badgeMeasurementsRef.current;
+
+      const existingObserver = observers.get(faceId);
+      if (existingObserver) {
+        existingObserver.disconnect();
+        observers.delete(faceId);
+      }
+
+      if (!node) {
+        measurements.delete(faceId);
+        badgeRefCallbacksRef.current.delete(faceId);
+        return;
+      }
+
+      const updateMeasurement = (width: number, height: number) => {
+        const previous = measurements.get(faceId);
+        if (previous && previous.width === width && previous.height === height) {
+          return;
+        }
+
+        measurements.set(faceId, { width, height });
+        if (typeof window !== 'undefined') {
+          window.requestAnimationFrame(() => bumpMeasurementVersion());
+        } else {
+          bumpMeasurementVersion();
+        }
+      };
+
+      const rect = node.getBoundingClientRect();
+      if (rect.width && rect.height) {
+        updateMeasurement(rect.width, rect.height);
+      }
+
+      if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
+        return;
+      }
+
+      const observer = new ResizeObserver((entries) => {
+        entries.forEach((entry) => {
+          const { width, height } = entry.contentRect;
+          updateMeasurement(width, height);
+        });
+      });
+
+      observer.observe(node);
+      observers.set(faceId, observer);
+    },
+    []
+  );
+
+  const getBadgeRefCallback = useCallback(
+    (faceId: string) => {
+      const callbacks = badgeRefCallbacksRef.current;
+      if (!callbacks.has(faceId)) {
+        callbacks.set(faceId, (node) => registerBadgeNode(faceId, node));
+      }
+      return callbacks.get(faceId)!;
+    },
+    [registerBadgeNode]
+  );
 
   // Calculate canvas dimensions and scale
   useEffect(() => {
@@ -247,7 +332,7 @@ export default function FaceCanvas({
           width={canvasSize.width}
           height={canvasSize.height}
           onClick={handleCanvasClick}
-          className="border-2 border-gray-300 dark:border-slate-600 rounded-2xl shadow-md cursor-pointer"
+          className="rounded-[26px] border border-white/60 dark:border-slate-700/60 shadow-[0_20px_38px_-22px_rgba(15,23,42,0.45)] bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl cursor-pointer transition-shadow"
           style={{
             width: canvasSize.width || '100%',
             height: canvasSize.height || 'auto',
@@ -258,27 +343,54 @@ export default function FaceCanvas({
         {onInspectFace && canvasSize.width > 0 && canvasSize.height > 0 && (
           <div className="absolute inset-0 pointer-events-none">
             {faces.map((face, index) => {
-              const top = Math.max(face.box.y * scale - 32, 8);
-              const left = Math.max(face.box.x * scale - 8, 8);
               const hasReplacement = replacements.some((r) => r.faceId === face.id);
               const isActive = activeReplacementId === face.id;
+              const badgeSize =
+                badgeMeasurementsRef.current.get(face.id) ?? DEFAULT_BADGE_SIZE;
+              const padding = 8;
+              const faceCenterX = (face.box.x + face.box.width / 2) * scale;
+              const faceTop = face.box.y * scale;
+              const faceBottom = (face.box.y + face.box.height) * scale;
+
+              let left = faceCenterX - badgeSize.width / 2;
+              let top = faceTop - badgeSize.height - 12;
+
+              if (top < padding) {
+                const fallbackTop = faceBottom + 12;
+                top = Math.min(
+                  Math.max(fallbackTop, padding),
+                  canvasSize.height - badgeSize.height - padding
+                );
+              }
+
+              left = Math.max(
+                padding,
+                Math.min(left, canvasSize.width - badgeSize.width - padding)
+              );
+              top = Math.max(
+                padding,
+                Math.min(top, canvasSize.height - badgeSize.height - padding)
+              );
+
+              const badgeBaseClass =
+                'pointer-events-auto absolute inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold shadow-sm transition-all backdrop-blur-md border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70';
+              const badgeVisualClass = isActive
+                ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white border-transparent shadow-[0_12px_24px_-14px_rgba(249,115,22,0.9)]'
+                : hasReplacement
+                  ? 'bg-white/90 dark:bg-slate-900/85 text-gray-700 dark:text-gray-100 border-white/60 dark:border-slate-700/60 shadow-[0_12px_24px_-18px_rgba(15,23,42,0.45)] hover:scale-105'
+                  : 'bg-white/70 dark:bg-slate-900/70 text-gray-500 dark:text-gray-400 border-dashed border-blue-300/60 dark:border-slate-600/60';
 
               return (
                 <button
                   key={face.id}
                   type="button"
+                  ref={getBadgeRefCallback(face.id)}
                   data-face-badge={face.id}
                   onClick={(event) => {
                     event.stopPropagation();
                     onInspectFace(face.id);
                   }}
-                  className={`pointer-events-auto absolute inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white'
-                      : hasReplacement
-                        ? 'bg-white/95 dark:bg-slate-900/85 text-gray-700 dark:text-gray-100 border border-blue-400/70 dark:border-slate-600 hover:scale-105'
-                        : 'bg-white/80 dark:bg-slate-900/70 text-gray-500 dark:text-gray-400 border border-dashed border-blue-300/60 dark:border-slate-600/60'
-                  }`}
+                  className={`${badgeBaseClass} ${badgeVisualClass}`}
                   style={{
                     top,
                     left,
