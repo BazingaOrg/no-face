@@ -151,7 +151,7 @@ export default function EmojiSelector({
         <motion.p
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center text-base font-bold text-gray-700 dark:text-gray-300 mt-2"
+          className="text-center text-base font-bold text-gray-700 dark:text-gray-300 mt-2 numeric-display"
           key={`${selectedEmoji}-${replacedCount}-${totalFaces}`}
         >
           {!selectedEmoji ? (

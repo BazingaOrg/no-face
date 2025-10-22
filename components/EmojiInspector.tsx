@@ -101,7 +101,7 @@ export default function EmojiInspector({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-blue-600 dark:text-blue-300 uppercase tracking-wide">微调表情</p>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100">{label}</h2>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100 numeric-display">{label}</h2>
           {replacement.isCustom && (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
               ⚙️ 已自定义
