@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import { DetectionSettings, EmojiSettings } from '@/types';
 
 interface SettingsPanelProps {
@@ -11,6 +12,9 @@ interface SettingsPanelProps {
   onToggle: () => void;
 }
 
+const SENSITIVITY_INPUT_CLASS =
+  'w-16 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors numeric-display';
+
 export default function SettingsPanel({
   detectionSettings,
   onDetectionChange,
@@ -18,6 +22,35 @@ export default function SettingsPanel({
   isOpen,
   onToggle,
 }: SettingsPanelProps) {
+  const currentSensitivity = detectionSettings.detector === 'ssd_mobilenetv1'
+    ? (detectionSettings.minConfidence ?? 0.5)
+    : (detectionSettings.scoreThreshold ?? 0.5);
+
+  const [sensitivityInput, setSensitivityInput] = useState(currentSensitivity.toFixed(2));
+
+  useEffect(() => {
+    setSensitivityInput(currentSensitivity.toFixed(2));
+  }, [currentSensitivity]);
+
+  const handleSensitivityChange = (value: string) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue)) {
+      const clamped = Math.min(Math.max(numValue, 0.1), 0.9);
+      setSensitivityInput(clamped.toFixed(2));
+
+      if (detectionSettings.detector === 'ssd_mobilenetv1') {
+        onDetectionChange({
+          ...detectionSettings,
+          minConfidence: clamped,
+        });
+      } else {
+        onDetectionChange({
+          ...detectionSettings,
+          scoreThreshold: clamped,
+        });
+      }
+    }
+  };
   return (
     <div className="w-full">
       {/* Unified card container - Duolingo Style */}
@@ -122,11 +155,25 @@ export default function SettingsPanel({
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   检测灵敏度
                 </label>
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg numeric-display">
-                  {detectionSettings.detector === 'ssd_mobilenetv1'
-                    ? detectionSettings.minConfidence?.toFixed(2)
-                    : (detectionSettings.scoreThreshold || 0.5).toFixed(2)}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={0.1}
+                    max={0.9}
+                    step={0.01}
+                    value={sensitivityInput}
+                    onChange={(event) => setSensitivityInput(event.target.value)}
+                    onBlur={(event) => handleSensitivityChange(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        handleSensitivityChange((event.target as HTMLInputElement).value);
+                      }
+                    }}
+                    className={SENSITIVITY_INPUT_CLASS}
+                    inputMode="decimal"
+                  />
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400">%</span>
+                </div>
               </div>
               <input
                 type="range"

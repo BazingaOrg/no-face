@@ -793,8 +793,8 @@ export default function Home() {
             >
               <div className="space-y-2">
                 {/* Detection result */}
-                <span className="text-lg font-bold text-gray-800 dark:text-gray-100 numeric-display block">
-                  ✓ 检测到 {faces.length} 张人脸
+                <span className="text-2xl font-black text-gray-900 dark:text-gray-100 numeric-display block">
+                  ✓ 检测到 <span className="numeric-display">{faces.length}</span> 张人脸
                 </span>
                 
                 {/* Replacement progress */}
@@ -806,11 +806,11 @@ export default function Home() {
                   >
                     {replacements.length === faces.length ? (
                       <span className="text-green-600 dark:text-green-400">
-                        🎉 已全部替换 ({replacements.length}/{faces.length})
+                        🎉 已全部替换 <span className="text-gray-500 dark:text-gray-500 text-xs numeric-display">({replacements.length}/{faces.length})</span>
                       </span>
                     ) : (
                       <span className="text-blue-600 dark:text-blue-400">
-                        ⏳ 已替换 {replacements.length}/{faces.length}
+                        ⏳ 已替换 <span className="text-gray-500 dark:text-gray-500 text-xs numeric-display">({replacements.length}/{faces.length})</span>
                       </span>
                     )}
                   </motion.div>

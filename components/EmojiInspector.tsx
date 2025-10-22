@@ -20,7 +20,7 @@ interface EmojiInspectorProps {
 const SECTION_CLASS = 'space-y-3';
 const SLIDER_CLASS = 'w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500';
 const INPUT_CLASS =
-  'w-14 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors numeric-display';
+  'w-16 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors numeric-display';
 
 export default function EmojiInspector({
   replacement,
@@ -38,20 +38,20 @@ export default function EmojiInspector({
   const opacityValue = replacement.opacity ?? defaultSettings.opacity;
   const [localScale, setLocalScale] = useState(scaleValue);
   const [localOpacity, setLocalOpacity] = useState(opacityValue);
-  const [scaleInput, setScaleInput] = useState(scaleValue.toFixed(2));
-  const [opacityInput, setOpacityInput] = useState(opacityValue.toFixed(2));
+  const [scaleInput, setScaleInput] = useState(scaleValue.toFixed(1));
+  const [opacityInput, setOpacityInput] = useState(opacityValue.toFixed(1));
   const flipX = Boolean(replacement.flipX);
   const flipY = Boolean(replacement.flipY);
   const containerClass = className ?? 'bg-white/95 dark:bg-slate-900/80 backdrop-blur-md border border-gray-200 dark:border-slate-700 rounded-3xl shadow-xl p-5 md:p-7 space-y-5';
 
   useEffect(() => {
     setLocalScale(scaleValue);
-    setScaleInput(scaleValue.toFixed(2));
+    setScaleInput(scaleValue.toFixed(1));
   }, [scaleValue]);
 
   useEffect(() => {
     setLocalOpacity(opacityValue);
-    setOpacityInput(opacityValue.toFixed(2));
+    setOpacityInput(opacityValue.toFixed(1));
   }, [opacityValue]);
 
   const clampScale = useCallback(
@@ -74,7 +74,7 @@ export default function EmojiInspector({
     (next: number) => {
       const clamped = clampScale(next);
       setLocalScale(clamped);
-      setScaleInput(clamped.toFixed(2));
+      setScaleInput(clamped.toFixed(1));
       scheduleUpdate({ scale: clamped });
     },
     [scheduleUpdate, clampScale]
@@ -84,7 +84,7 @@ export default function EmojiInspector({
     (next: number) => {
       const clamped = clampOpacity(next);
       setLocalOpacity(clamped);
-      setOpacityInput(clamped.toFixed(2));
+      setOpacityInput(clamped.toFixed(1));
       scheduleUpdate({ opacity: clamped });
     },
     [scheduleUpdate, clampOpacity]
