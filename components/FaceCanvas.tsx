@@ -316,7 +316,7 @@ export default function FaceCanvas({
                   }}
                   title={hasReplacement ? '微调当前表情' : '先替换后再微调'}
                 >
-                  <span>Face {index + 1}</span>
+                  <span>Face <span className="numeric-display">{index + 1}</span></span>
                   {hasReplacement && <span aria-hidden>⚙️</span>}
                 </button>
               );

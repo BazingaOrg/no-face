@@ -20,7 +20,7 @@ interface EmojiInspectorProps {
 const SECTION_CLASS = 'space-y-3';
 const SLIDER_CLASS = 'w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500';
 const INPUT_CLASS =
-  'w-14 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors';
+  'w-14 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors numeric-display';
 
 export default function EmojiInspector({
   replacement,
