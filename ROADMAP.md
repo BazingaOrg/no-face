@@ -141,10 +141,17 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 
 - [ ] **Real-time camera mode** - 实时摄像头模式
   - **Priority**: 中等偏高 - 扩展产品使用场景
-  - [ ] Access device camera (getUserMedia API) - 访问设备摄像头
-  - [ ] Live face detection and replacement - 实时人脸检测和替换
-  - [ ] Capture photo with applied emojis - 拍照时应用表情符号
-  - [ ] Video recording with effects - 视频录制时应用效果
+  - **Scope**: 与当前图片流程保持一致，新增实时串流入口、状态机以及摄像头资源管理
+  - [ ] UX entry & state machine - 入口设计与状态管理（未授权 / 准备 / 检测中 / 暂停 / 出错）
+  - [ ] Media access layer - 基于 `navigator.mediaDevices.getUserMedia` 的前置/后置摄像头封装
+  - [ ] Video rendering pipeline - 将 `HTMLVideoElement` 帧绘制到 Canvas 并与现有 emoji 叠加合并
+  - [ ] Detection loop integration - 复用 `runFaceDetection`，加入 FPS 限流与平滑滤波
+  - [ ] Snapshot export - 拍照导出并复用 PNG 下载流程
+  - [ ] Resource cleanup - 退出时停止 `MediaStreamTrack` 并清理检测循环
+  - **Risks & TODOs**
+    - [ ] Safari/iOS HTTPS 与用户手势限制说明
+    - [ ] 低端设备 TinyFaceDetector 切换与性能监控
+    - [ ] 模型预热与初次加载延迟提示
 
 - [ ] **Preset styles/packs** - 预设样式包
   - **Priority**: 低 - 增强趣味性
@@ -160,6 +167,17 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
   - [ ] Remember emoji choice per person across uploads - 记住每个人的表情选择
   - [ ] Local storage persistence - 本地存储持久化
   - [ ] Face embedding comparison - 人脸特征比对
+
+- [ ] **Video recording with emoji overlay** - 表情叠加视频录制
+  - **Priority**: 中等 - 实时模式的进阶功能
+  - [ ] Canvas capture stream - 通过 `canvas.captureStream()` 获取带特效的视频轨道
+  - [ ] MediaRecorder integration - `MediaRecorder` 封装，支持 WebM/MP4 输出与回退策略
+  - [ ] Optional audio merge - 可选麦克风音轨合并与静音提示
+  - [ ] Recording UI/UX - 录制按钮、计时器、状态反馈（录制中/已保存）
+  - [ ] Export management - 下载命名、文件大小提示以及 Safari 专属兼容说明
+  - **Open questions**
+    - [ ] 低端设备分辨率 / 帧率自适应策略
+    - [ ] Web Worker + OffscreenCanvas 是否需要提前投入
 
 - [ ] **GIF/Video support** - GIF/视频支持
   - **Priority**: 中等 - 扩展媒体类型支持

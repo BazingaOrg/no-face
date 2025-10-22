@@ -130,7 +130,14 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
 **Planned Features**
 - Drag to reposition emojis per face
 - Undo/Redo functionality
-- Real-time camera mode
+- Real-time camera mode (in design)
+  - Live face tracking via `@vladmandic/face-api` on `HTMLVideoElement`
+  - Streamlined UI entry alongside the existing uploader with a dedicated state machine
+  - Real-time emoji overlay with smoothing, pause, and snapshot controls
+- Video recording with emoji effects
+  - Use `HTMLCanvasElement.captureStream` + `MediaRecorder` for WebM/MP4 output
+  - Optional microphone track merge and adaptive FPS/resolution controls for low-end devices
+  - Post-recording export flow aligned with current PNG workflow
 - PWA support
 
 ### 🐛 Known Issues
