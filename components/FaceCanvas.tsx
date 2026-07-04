@@ -11,7 +11,6 @@ interface FaceCanvasProps {
   image: HTMLImageElement | null;
   faces: DetectedFace[];
   replacements: EmojiReplacement[];
-  selectedEmoji: string | null;
   onFaceClick: (faceId: string) => void;
   onInspectFace?: (faceId: string) => void;
   activeReplacementId?: string | null;
@@ -21,7 +20,6 @@ export default function FaceCanvas({
   image,
   faces,
   replacements,
-  selectedEmoji,
   onFaceClick,
   onInspectFace,
   activeReplacementId,
@@ -223,9 +221,8 @@ export default function FaceCanvas({
   ]);
 
   // Handle canvas click to select face
+  // No selected-emoji guard: the parent decides how to respond (e.g. prompt to pick one)
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!selectedEmoji) return;
-
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -316,7 +313,7 @@ export default function FaceCanvas({
                   }}
                   title={hasReplacement ? '微调当前表情' : '先替换后再微调'}
                 >
-                  <span>Face <span className="numeric-display">{index + 1}</span></span>
+                  <span>第 {index + 1} 张脸</span>
                   {hasReplacement && <span aria-hidden>⚙️</span>}
                 </button>
               );

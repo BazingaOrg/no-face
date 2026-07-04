@@ -29,14 +29,11 @@ export default function Toast({ message, isVisible, onClose, duration = 2000 }: 
           exit={{ opacity: 0, y: 20, scale: 0.9 }}
           className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50"
         >
-          <div className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 min-w-[200px] backdrop-blur-sm">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-              className="text-xl"
-            >
-              ⚙️
-            </motion.div>
+          <div
+            role="status"
+            aria-live="polite"
+            className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center justify-center min-w-[200px] backdrop-blur-sm"
+          >
             <span className="font-bold text-sm">{message}</span>
           </div>
         </motion.div>

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import NextImage from 'next/image';
 import ImageUploader from '@/components/ImageUploader';
@@ -209,7 +209,7 @@ export default function Home() {
           ...prev,
           isLoading: false,
         }));
-        setError('模型加载失败，请刷新页面重试');
+        setError('模型加载失败，请刷新页面或检查网络后重试');
       }
     };
 
@@ -224,16 +224,16 @@ export default function Home() {
       // Check if model is loaded
       if (detector === 'tiny_face_detector' && !isModelLoaded('tinyFaceDetector')) {
         // Show toast notification
-        setToastMessage('⏳ 正在唤醒 Tiny 模型');
+        setToastMessage('⏳ 正在加载极速模式');
         setIsToastVisible(true);
-        
+
         try {
           await loadTinyModel(false); // Load with progress
-          setToastMessage('✅ 检测器上线啦');
+          setToastMessage('✅ 极速模式就绪');
           setIsToastVisible(true);
         } catch (error) {
           console.error('检测器加载失败:', error);
-          setToastMessage('❌ 模型加载没成功');
+          setToastMessage('❌ 极速模式加载失败，请检查网络后重试');
           setIsToastVisible(true);
         }
       }
@@ -334,7 +334,7 @@ export default function Home() {
         }
       } catch (error) {
         console.error('人脸检测失败:', error);
-        setError('😵 检测没成功，重试看看？');
+        setError('😵 检测出错了，点「重新检测」再试一次');
       } finally {
         setIsProcessing(false);
         setProcessingMessage('');
@@ -355,7 +355,13 @@ export default function Home() {
   // Handle face click to apply emoji
   const handleFaceClick = useCallback(
     async (faceId: string) => {
-      if (!selectedEmoji) return;
+      if (!selectedEmoji) {
+        // Guide the user to pick an emoji first instead of failing silently
+        setToastMessage('👇 先选一个表情，再点人脸');
+        setIsToastVisible(true);
+        setIsEmojiPickerOpen(true);
+        return;
+      }
 
       const face = faces.find((f) => f.id === faceId);
       if (!face) return;
@@ -476,7 +482,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('重新检测失败:', error);
-      setError('😵 检测没成功，重试看看？');
+      setError('😵 检测出错了，点「重新检测」再试一次');
     } finally {
       setIsProcessing(false);
       setProcessingMessage('');
@@ -627,11 +633,15 @@ export default function Home() {
         a.download = `no-face-${timestamp}.png`;
         a.click();
         URL.revokeObjectURL(url);
+
+        setToastMessage('✅ 图片已保存到下载');
+        setIsToastVisible(true);
       }, 'image/png');
     });
   }, [image, faces, replacements]);
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-6 px-4 flex flex-col">
       {/* Model Loading Modal */}
       <ModelLoadingModal state={modelLoadingState} />
@@ -689,26 +699,25 @@ export default function Home() {
             </div>
           </motion.div>
 
-          {/* Title with Privacy Badge */}
-          <div className="relative inline-block">
-            {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight shimmer-text bg-clip-text">
-              カオナシ
-            </h1>
+          {/* Title */}
+          <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight shimmer-text bg-clip-text">
+            カオナシ
+          </h1>
 
-            {/* Privacy Badge - Absolute positioned at top right */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-              className="absolute -top-0 -right-20 -translate-y-1/2 inline-flex items-center justify-center gap-1 px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full shadow-sm"
-            >
-              <span className="text-xs">🔒</span>
-              <span className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                本地处理
-              </span>
-            </motion.div>
-          </div>
+          {/* Subtitle with privacy promise */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-2 flex flex-wrap items-center justify-center gap-2 px-4"
+          >
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full shadow-sm text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              🔒 本地处理
+            </span>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              用 Emoji 隐藏照片里的脸，图片不会离开你的浏览器
+            </p>
+          </motion.div>
         </motion.div>
 
         {/* Main content */}
@@ -763,7 +772,6 @@ export default function Home() {
                 image={image}
                 faces={faces}
                 replacements={replacements}
-                selectedEmoji={selectedEmoji}
                 onFaceClick={handleFaceClick}
                 onInspectFace={handleInspectFace}
                 activeReplacementId={activeReplacementId}
@@ -774,6 +782,7 @@ export default function Home() {
           {/* Status message - Error */}
           {image && error && (
             <motion.div
+              role="alert"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-5 text-center border-4 border-orange-400 dark:border-orange-500"
@@ -793,8 +802,8 @@ export default function Home() {
             >
               <div className="space-y-2">
                 {/* Detection result */}
-                <span className="text-2xl font-black text-gray-900 dark:text-gray-100 numeric-display block">
-                  ✓ 检测到 <span className="numeric-display">{faces.length}</span> 张人脸
+                <span className="text-2xl font-black text-gray-900 dark:text-gray-100 block">
+                  ✓ 检测到 {faces.length} 张人脸
                 </span>
                 
                 {/* Replacement progress */}
@@ -802,15 +811,15 @@ export default function Home() {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-sm font-bold numeric-display"
+                    className="text-sm font-bold"
                   >
                     {replacements.length === faces.length ? (
                       <span className="text-green-600 dark:text-green-400">
-                        🎉 已全部替换 <span className="text-gray-500 dark:text-gray-500 text-xs numeric-display">({replacements.length}/{faces.length})</span>
+                        🎉 已全部替换 <span className="text-gray-500 dark:text-gray-500 text-xs">({replacements.length}/{faces.length})</span>
                       </span>
                     ) : (
                       <span className="text-blue-600 dark:text-blue-400">
-                        ⏳ 已替换 <span className="text-gray-500 dark:text-gray-500 text-xs numeric-display">({replacements.length}/{faces.length})</span>
+                        ⏳ 已替换 <span className="text-gray-500 dark:text-gray-500 text-xs">({replacements.length}/{faces.length})</span>
                       </span>
                     )}
                   </motion.div>
@@ -825,21 +834,24 @@ export default function Home() {
                   whileTap={{ scale: 0.98 }}
                   className="text-sm px-3 py-1.5 bg-gradient-to-r from-blue-300 to-blue-400 hover:from-blue-400 hover:to-blue-500 dark:from-blue-600 dark:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 text-white rounded-xl font-bold shadow-sm transition-all border-b-2 border-blue-500 dark:border-blue-900 active:border-b-0 active:mt-0.5"
                 >
-                  🔄 重检
+                  🔄 重新检测
                 </motion.button>
                 <motion.button
                   onClick={() => {
                     setImage(null);
+                    setOptimizedImage(null);
                     setFaces([]);
                     setReplacements([]);
                     setSelectedEmoji(null);
+                    setActiveReplacementId(null);
+                    setIsEmojiPickerOpen(false);
                     setError(null);
                   }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="text-sm px-3 py-1.5 bg-gradient-to-r from-indigo-300 to-indigo-400 hover:from-indigo-400 hover:to-indigo-500 dark:from-indigo-600 dark:to-indigo-700 dark:hover:from-indigo-700 dark:hover:to-indigo-800 text-white rounded-xl font-bold shadow-sm transition-all border-b-2 border-indigo-500 dark:border-indigo-900 active:border-b-0 active:mt-0.5"
                 >
-                  📤 新图
+                  📤 换一张
                 </motion.button>
               </div>
             </motion.div>
@@ -875,7 +887,7 @@ export default function Home() {
                 whileHover={selectedEmoji ? { scale: 1.05 } : {}}
                 whileTap={selectedEmoji ? { scale: 0.95 } : {}}
                 disabled={!selectedEmoji}
-                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 numeric-display ${
+                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 ${
                   selectedEmoji
                     ? 'bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white border-b-4 border-green-600 active:border-b-0 active:mt-1 cursor-pointer'
                     : 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 border-b-4 border-gray-400 cursor-not-allowed opacity-60'
@@ -891,7 +903,7 @@ export default function Home() {
                 whileHover={replacements.length > 0 ? { scale: 1.05 } : {}}
                 whileTap={replacements.length > 0 ? { scale: 0.95 } : {}}
                 disabled={replacements.length === 0}
-                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 numeric-display ${
+                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 ${
                   replacements.length > 0
                     ? 'bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white border-b-4 border-gray-600 active:border-b-0 active:mt-1 cursor-pointer'
                     : 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 border-b-4 border-gray-400 cursor-not-allowed opacity-60'
@@ -906,7 +918,7 @@ export default function Home() {
                 whileHover={replacements.length > 0 ? { scale: 1.05 } : {}}
                 whileTap={replacements.length > 0 ? { scale: 0.95 } : {}}
                 disabled={replacements.length === 0}
-                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 numeric-display ${
+                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 ${
                   replacements.length > 0
                     ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-white border-b-4 border-yellow-600 active:border-b-0 active:mt-1 cursor-pointer'
                     : 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 border-b-4 border-gray-400 cursor-not-allowed opacity-60'
@@ -958,7 +970,7 @@ export default function Home() {
                 <EmojiInspector
                   replacement={activeReplacement}
                   defaultSettings={emojiSettings}
-                  label={activeFaceIndex >= 0 ? `Face ${activeFaceIndex + 1}` : 'Face'}
+                  label={activeFaceIndex >= 0 ? `第 ${activeFaceIndex + 1} 张脸` : '人脸'}
                   onUpdate={handleInspectorUpdate}
                   onResetToDefault={handleInspectorReset}
                   onAdoptAsDefault={handleInspectorAdopt}
@@ -1004,9 +1016,10 @@ export default function Home() {
           <span className="font-black">カオナシ</span>
         </p>
         <p className="text-gray-500 dark:text-gray-500 text-xs">
-          © 2025 All rights reserved.
+          © {new Date().getFullYear()} All rights reserved.
         </p>
       </motion.footer>
     </div>
+    </MotionConfig>
   );
 }

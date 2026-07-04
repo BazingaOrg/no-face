@@ -159,7 +159,6 @@ export async function loadTinyModel(silent = false): Promise<void> {
       100,
       loadSpecificModel('tinyFaceDetector')
     );
-    console.log('✅ Tiny Face Detector 已在后台加载完成');
   }
 }
 
