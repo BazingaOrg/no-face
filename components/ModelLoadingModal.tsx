@@ -82,7 +82,7 @@ export default function ModelLoadingModal({ state }: ModelLoadingModalProps) {
 
           {/* Progress Bar */}
           <div className="mb-6">
-            <div className="flex justify-between text-sm font-bold text-gray-600 dark:text-gray-300 mb-2 numeric-display">
+            <div className="flex justify-between text-sm font-bold text-gray-600 dark:text-gray-300 mb-2">
               <span>加载进度</span>
               <span>{Math.round(state.progress)}%</span>
             </div>
