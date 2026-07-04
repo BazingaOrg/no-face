@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "No Face - Privacy-focused Face Replacement",
-  description: "Replace faces in images with emojis. All processing happens locally in your browser - no data upload.",
+  title: "カオナシ No Face - 用 Emoji 隐藏照片里的人脸",
+  description: "隐私优先的人脸遮罩工具：用 Emoji 替换照片中的人脸，所有处理都在浏览器本地完成，图片不会上传到任何服务器。",
+  openGraph: {
+    title: "カオナシ No Face - 用 Emoji 隐藏照片里的人脸",
+    description: "隐私优先的人脸遮罩工具，所有处理都在浏览器本地完成。",
+    type: "website",
+    locale: "zh_CN",
+  },
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -21,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body className="antialiased">
         {children}
       </body>
