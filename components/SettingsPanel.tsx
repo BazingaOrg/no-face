@@ -13,7 +13,7 @@ interface SettingsPanelProps {
 }
 
 const SENSITIVITY_INPUT_CLASS =
-  'w-16 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors numeric-display';
+  'w-16 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors';
 
 export default function SettingsPanel({
   detectionSettings,
@@ -26,17 +26,20 @@ export default function SettingsPanel({
     ? (detectionSettings.minConfidence ?? 0.5)
     : (detectionSettings.scoreThreshold ?? 0.5);
 
-  const [sensitivityInput, setSensitivityInput] = useState(currentSensitivity.toFixed(2));
+  // Text input works in whole percentages (10-90); settings store 0.1-0.9
+  const [sensitivityInput, setSensitivityInput] = useState(
+    Math.round(currentSensitivity * 100).toString()
+  );
 
   useEffect(() => {
-    setSensitivityInput(currentSensitivity.toFixed(2));
+    setSensitivityInput(Math.round(currentSensitivity * 100).toString());
   }, [currentSensitivity]);
 
   const handleSensitivityChange = (value: string) => {
     const numValue = parseFloat(value);
     if (!isNaN(numValue)) {
-      const clamped = Math.min(Math.max(numValue, 0.1), 0.9);
-      setSensitivityInput(clamped.toFixed(2));
+      const clamped = Math.min(Math.max(numValue, 10), 90) / 100;
+      setSensitivityInput(Math.round(clamped * 100).toString());
 
       if (detectionSettings.detector === 'ssd_mobilenetv1') {
         onDetectionChange({
@@ -158,9 +161,9 @@ export default function SettingsPanel({
                 <div className="flex items-center gap-1.5">
                   <input
                     type="number"
-                    min={0.1}
-                    max={0.9}
-                    step={0.01}
+                    min={10}
+                    max={90}
+                    step={1}
                     value={sensitivityInput}
                     onChange={(event) => setSensitivityInput(event.target.value)}
                     onBlur={(event) => handleSensitivityChange(event.target.value)}
@@ -170,7 +173,7 @@ export default function SettingsPanel({
                       }
                     }}
                     className={SENSITIVITY_INPUT_CLASS}
-                    inputMode="decimal"
+                    inputMode="numeric"
                   />
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400">%</span>
                 </div>

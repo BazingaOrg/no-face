@@ -20,7 +20,7 @@ interface EmojiInspectorProps {
 const SECTION_CLASS = 'space-y-3';
 const SLIDER_CLASS = 'w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500';
 const INPUT_CLASS =
-  'w-16 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors numeric-display';
+  'w-16 px-2 py-1 text-xs font-bold text-gray-800 dark:text-gray-100 bg-white/75 dark:bg-slate-900/70 border border-transparent rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 text-right transition-colors';
 
 export default function EmojiInspector({
   replacement,
@@ -39,7 +39,8 @@ export default function EmojiInspector({
   const [localScale, setLocalScale] = useState(scaleValue);
   const [localOpacity, setLocalOpacity] = useState(opacityValue);
   const [scaleInput, setScaleInput] = useState(scaleValue.toFixed(1));
-  const [opacityInput, setOpacityInput] = useState(opacityValue.toFixed(1));
+  // Opacity text input works in whole percentages (50-100); replacement stores 0.5-1
+  const [opacityInput, setOpacityInput] = useState(Math.round(opacityValue * 100).toString());
   const flipX = Boolean(replacement.flipX);
   const flipY = Boolean(replacement.flipY);
   const containerClass = className ?? 'bg-white/95 dark:bg-slate-900/80 backdrop-blur-md border border-gray-200 dark:border-slate-700 rounded-3xl shadow-xl p-5 md:p-7 space-y-5';
@@ -51,7 +52,7 @@ export default function EmojiInspector({
 
   useEffect(() => {
     setLocalOpacity(opacityValue);
-    setOpacityInput(opacityValue.toFixed(1));
+    setOpacityInput(Math.round(opacityValue * 100).toString());
   }, [opacityValue]);
 
   const clampScale = useCallback(
@@ -84,7 +85,7 @@ export default function EmojiInspector({
     (next: number) => {
       const clamped = clampOpacity(next);
       setLocalOpacity(clamped);
-      setOpacityInput(clamped.toFixed(1));
+      setOpacityInput(Math.round(clamped * 100).toString());
       scheduleUpdate({ opacity: clamped });
     },
     [scheduleUpdate, clampOpacity]
@@ -101,7 +102,7 @@ export default function EmojiInspector({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-blue-600 dark:text-blue-300 uppercase tracking-wide">微调表情</p>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100 numeric-display">{label}</h2>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100">{label}</h2>
           {replacement.isCustom && (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
               ⚙️ 已自定义
@@ -160,21 +161,21 @@ export default function EmojiInspector({
             <div className="flex items-center gap-1.5">
               <input
                 type="number"
-                min={0.5}
-                max={1}
-                step={0.01}
+                min={50}
+                max={100}
+                step={1}
                 value={opacityInput}
                 onChange={(event) => {
                   setOpacityInput(event.target.value);
                 }}
-                onBlur={(event) => handleOpacityChange(parseFloat(event.target.value))}
+                onBlur={(event) => handleOpacityChange(parseFloat(event.target.value) / 100)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
-                    handleOpacityChange(parseFloat((event.target as HTMLInputElement).value));
+                    handleOpacityChange(parseFloat((event.target as HTMLInputElement).value) / 100);
                   }
                 }}
                 className={INPUT_CLASS}
-                inputMode="decimal"
+                inputMode="numeric"
               />
               <span className="text-xs font-bold text-gray-500 dark:text-gray-400">%</span>
             </div>
