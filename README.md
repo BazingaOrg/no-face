@@ -14,7 +14,7 @@
 
 - 📤 **Multiple upload methods** - Drag & drop, click to select, or use camera on mobile
 - 🔍 **Automatic face detection** - Powered by face-api.js with dual detection modes
-- 😀 **Rich emoji picker** - 3600+ emojis with English & Chinese keyword search
+- 😀 **Rich emoji picker** - 3600+ emojis with keyword search, plus a random-pick button
 - 🎯 **Flexible editing** - Click to replace individual faces, open the inspector, or apply changes to everyone at once
 - 🧲 **Per-face inspector** - Bottom sheet with precise scale/opacity controls, quick default updates, and a drag handle to close
 - ⚙️ **Advanced settings** - Adjust detection sensitivity and global defaults with instant visual feedback
@@ -34,7 +34,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/no-face.git
+git clone https://github.com/BazingaOrg/no-face.git
 cd no-face
 
 # Install dependencies
@@ -84,22 +84,28 @@ no-face/
 │   ├── FaceCanvas.tsx        # Interactive face detection canvas
 │   ├── EmojiSelector.tsx     # Emoji picker with search
 │   ├── EmojiInspector.tsx    # Per-face micro-tuning bottom sheet
-│   └── SettingsPanel.tsx     # Detection settings card
+│   ├── SettingsPanel.tsx     # Detection settings card
+│   ├── ModelLoadingModal.tsx # Model loading progress modal
+│   ├── ProcessingOverlay.tsx # Detection progress overlay
+│   └── Toast.tsx             # Toast notifications (with undo action)
 ├── hooks/
 │   ├── useFaceBadgeLayout.ts         # Badge measurement & positioning helper
 │   ├── useFrameDebouncedCallback.ts  # Frame-synchronised debounce hook
 │   └── useInspectorActions.ts        # Inspector action aggregation
 ├── lib/
-│   ├── faceApi.ts            # face-api.js wrapper
+│   ├── faceApi.ts            # @vladmandic/face-api wrapper
 │   ├── runFaceDetection.ts   # Normalised detection pipeline
 │   ├── twemoji.ts            # Twemoji CDN utilities
-│   ├── emojiSearch.ts        # Chinese keyword search
-│   └── emojiRenderUtils.ts   # Emoji sizing & positioning
+│   ├── emojiImageCache.ts    # Shared emoji bitmap cache
+│   └── emojiRenderUtils.ts   # Emoji sizing & shared draw routine
+├── utils/
+│   └── imageOptimization.ts  # Large-image downscaling for detection
 ├── types/
 │   └── index.ts              # TypeScript type definitions
-├── public/models/            # Face detection models (optional)
+├── public/models/            # Face detection models (self-hosted)
+├── docs/                     # Design specs & improvement plans
 ├── ROADMAP.md                # Development roadmap
-├── MODELS_DOWNLOAD.md        # Model setup guide
+├── MODELS_SETUP.md           # Model setup guide
 └── CLAUDE.md                 # Developer documentation
 ```
 
@@ -109,13 +115,13 @@ no-face/
 
 - **Default detector**: SSD MobileNet V1 (high accuracy)
 - **Alternative**: Tiny Face Detector (faster, lower accuracy)
-- **Models**: Loaded from CDN with auto-fallback (see [MODELS_DOWNLOAD.md](./MODELS_DOWNLOAD.md))
+- **Models**: Self-hosted in `public/models/` (see [MODELS_SETUP.md](./MODELS_SETUP.md))
 
 #### Emoji Settings
 
-- **Format**: SVG (vector) or PNG
+- **Format**: SVG (vector, via Twemoji)
 - **Size**: Adaptive scaling based on face size
-- **Customizable**: Scale (50-200%), opacity (50-100%), position offset
+- **Customizable**: Scale (50-200%), opacity (50-100%), horizontal/vertical flip
 
 ### 📋 Roadmap
 
@@ -123,9 +129,9 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
 
 **MVP Completed** ✅
 - Image upload, face detection, emoji replacement
-- Advanced settings panel
+- Advanced settings panel & per-face inspector
 - Mobile responsive design
-- Chinese emoji search
+- Undoable reset / re-detect
 
 **Planned Features**
 - Drag to reposition emojis per face
@@ -142,9 +148,10 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
 
 ### 🐛 Known Issues
 
-- Large images (>10MB) may slow down detection - Web Worker implementation planned
+- Large images are auto-downscaled to 1920px for detection (export keeps original quality)
 - Browser compatibility testing in progress (Chrome/Edge/Firefox/Safari)
-- Emoji picker loads 3600+ emojis - virtualization planned
+- Emoji picker loads 3600+ emojis when opened - virtualization planned
+- Chinese emoji keyword search is planned but not yet available
 
 ### 🤝 Contributing
 
@@ -178,7 +185,7 @@ MIT License - free for personal and commercial use.
 
 - 📤 **多种上传方式** - 拖放上传、点击选择或移动端相机拍摄
 - 🔍 **自动人脸检测** - 基于 face-api.js 的双模式检测
-- 😀 **丰富表情库** - 3600+ Emoji，支持中英文关键词搜索
+- 😀 **丰富表情库** - 3600+ Emoji，支持关键词搜索与随机选择
 - 🎯 **灵活编辑** - 单击替换单张人脸、打开微调抽屉或一键应用给所有人
 - 🧲 **微调抽屉** - 底部抽屉可精调大小/透明度、更新默认值，并支持拖拽手柄关闭
 - ⚙️ **高级设置** - 即时调节检测灵敏度与全局默认表情配置
@@ -198,7 +205,7 @@ MIT License - free for personal and commercial use.
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/no-face.git
+git clone https://github.com/BazingaOrg/no-face.git
 cd no-face
 
 # 安装依赖
@@ -247,17 +254,29 @@ no-face/
 │   ├── ImageUploader.tsx     # 拖放上传 + 相机
 │   ├── FaceCanvas.tsx        # 交互式人脸检测画布
 │   ├── EmojiSelector.tsx     # 带搜索的 Emoji 选择器
-│   └── SettingsPanel.tsx     # 检测和 Emoji 设置
+│   ├── EmojiInspector.tsx    # 单脸微调底部抽屉
+│   ├── SettingsPanel.tsx     # 检测设置卡片
+│   ├── ModelLoadingModal.tsx # 模型加载进度弹窗
+│   ├── ProcessingOverlay.tsx # 检测进度遮罩
+│   └── Toast.tsx             # 提示条（支持撤销操作）
+├── hooks/
+│   ├── useFaceBadgeLayout.ts         # 人脸标签测量与定位
+│   ├── useFrameDebouncedCallback.ts  # 帧同步防抖
+│   └── useInspectorActions.ts        # 微调面板动作聚合
 ├── lib/
-│   ├── faceApi.ts            # face-api.js 封装
+│   ├── faceApi.ts            # @vladmandic/face-api 封装
+│   ├── runFaceDetection.ts   # 标准化检测管线
 │   ├── twemoji.ts            # Twemoji CDN 工具
-│   ├── emojiSearch.ts        # 中文关键词搜索
-│   └── emojiRenderUtils.ts   # Emoji 尺寸和定位
+│   ├── emojiImageCache.ts    # Emoji 位图共享缓存
+│   └── emojiRenderUtils.ts   # Emoji 尺寸与统一绘制
+├── utils/
+│   └── imageOptimization.ts  # 大图压缩与坐标映射
 ├── types/
 │   └── index.ts              # TypeScript 类型定义
-├── public/models/            # 人脸检测模型（可选）
+├── public/models/            # 人脸检测模型（本地托管）
+├── docs/                     # 设计规范与改进方案
 ├── ROADMAP.md                # 开发路线图
-├── MODELS_DOWNLOAD.md        # 模型配置指南
+├── MODELS_SETUP.md           # 模型配置指南
 └── CLAUDE.md                 # 开发者文档
 ```
 
@@ -267,13 +286,13 @@ no-face/
 
 - **默认检测器**: SSD MobileNet V1（高精度）
 - **备选检测器**: Tiny Face Detector（更快，精度较低）
-- **模型加载**: 从 CDN 加载并自动回退（详见 [MODELS_DOWNLOAD.md](./MODELS_DOWNLOAD.md)）
+- **模型加载**: 本地托管于 `public/models/`（详见 [MODELS_SETUP.md](./MODELS_SETUP.md)）
 
 #### Emoji 设置
 
-- **格式**: SVG（矢量）或 PNG
+- **格式**: SVG（矢量，来自 Twemoji）
 - **大小**: 根据人脸尺寸自适应缩放
-- **可定制**: 缩放（50-200%）、透明度（50-100%）、位置偏移
+- **可定制**: 缩放（50-200%）、透明度（50-100%）、水平/垂直翻转
 
 ### 📋 开发路线图
 
@@ -281,9 +300,9 @@ no-face/
 
 **MVP 已完成** ✅
 - 图片上传、人脸检测、Emoji 替换
-- 高级设置面板
+- 高级设置面板与单脸微调抽屉
 - 移动端响应式设计
-- 中文 Emoji 搜索
+- 重置/重新检测可撤销
 
 **计划功能**
 - 拖动调整单个 Emoji 位置
@@ -293,9 +312,10 @@ no-face/
 
 ### 🐛 已知问题
 
-- 大图片（>10MB）可能导致检测变慢 - 计划使用 Web Worker 优化
+- 大图片会自动压缩到 1920px 用于检测（导出保持原始画质）
 - 浏览器兼容性测试进行中（Chrome/Edge/Firefox/Safari）
-- Emoji 选择器加载 3600+ 表情 - 计划虚拟化优化
+- Emoji 选择器展开时加载 3600+ 表情 - 计划虚拟化优化
+- 中文 Emoji 关键词搜索在计划中，当前尚未提供
 
 ### 🤝 参与贡献
 

@@ -8,7 +8,7 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 - [x] Image upload (drag & drop + click + mobile camera)
 - [x] Face detection (face-api.js with SSD MobileNet V1 + Tiny Face Detector)
 - [x] Canvas display with face overlay and interactive face boxes
-- [x] Emoji picker integration (emoji-picker-react) with Chinese keyword search
+- [x] Emoji picker integration (emoji-picker-react); Chinese keyword search removed in a later refactor, planned to return (see UI/UX backlog)
 - [x] Click-to-replace workflow
 - [x] Export original quality image (PNG format)
 - [x] Mobile responsive design (Duolingo-inspired UI)
@@ -47,7 +47,7 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 
 - [x] **Model files hosting**: Models can be self-hosted or loaded from CDN
   - **Status**: Using local `/models` with CDN fallback
-  - **Setup guide**: See `MODELS_DOWNLOAD.md` for instructions
+  - **Setup guide**: See `MODELS_SETUP.md` for instructions
   - **Configuration**: `lib/faceApi.ts` line 29 switches between local/CDN
   - **Note**: Face Landmarks 68 model downloaded but not currently in use (prepared for future features)
 
@@ -263,7 +263,7 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
   - [ ] Manual toggle
 - [ ] Multiple languages
   - [ ] i18n setup
-  - [x] Chinese emoji search (partial implementation)
+  - [ ] Chinese emoji search (removed in refactor, to be rebuilt)
   - [ ] Full UI translation (English, Chinese, Spanish, Japanese)
 
 ## 📈 Analytics & Metrics (Privacy-focused)
@@ -331,9 +331,23 @@ This project welcomes contributions! See GitHub issues for open tasks.
 
 ---
 
-**Last Updated**: 2025-10-15
-**Current Phase**: ✅ Week 3 完成 → Week 4 Bug 修复和优化完成 ✨
-**Version**: 1.2.0 → 0.2.0 ✨
+**Last Updated**: 2026-07-05
+**Current Phase**: ✅ 2026-07 质量整备（P0 修复 + UI/UX 打磨 + 文档对齐）完成
+**Version**: 0.2.0
+
+**Recent Updates (2026-07-05)**:
+- ✅ Twemoji ZWJ 序列修复 + 切换到维护中的 jdecked/twemoji CDN
+- ✅ 画布渲染重构：共享 Emoji 缓存、devicePixelRatio 高清渲染、过期异步绘制取消、ResizeObserver 自适应
+- ✅ CDN 失败降级原生 Emoji 渲染（预览与导出一致）
+- ✅ 上传改用 object URL；「全部替换」批量化
+- ✅ 重置/重新检测支持撤销（Toast 操作按钮）
+- ✅ UI：无衬线字体、暗色标题修复、按钮三级体系、隐私副标题、文案打磨、zh-CN 元数据
+- ✅ 清理：移除 html2canvas/@radix-ui 未用依赖与 lib/types 死代码
+- 📄 详见 `docs/optimization-plan.md` 与 `docs/ui-ux-copy-review.md`
+
+---
+
+## 历史记录（2025-10-15）
 **Priority Focus**:
 - ✅ 高优先级 (已完成): 模型加载进度指示器、大图片优化、Bug 修复、Emoji 加载优化
 - ⚠️ 下一步: 浏览器兼容性测试

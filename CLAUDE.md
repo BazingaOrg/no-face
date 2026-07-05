@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **No Face** is a privacy-focused web application that replaces faces in images with emojis. All processing happens client-side in the browser - no data is uploaded to servers.
 
-**Tech Stack**: Next.js 15 (App Router), TypeScript, Tailwind CSS v4, face-api.js, emoji-picker-react, Framer Motion
+**Tech Stack**: Next.js 15 (App Router), TypeScript, Tailwind CSS v4, @vladmandic/face-api, emoji-picker-react, Framer Motion
 
 ## Common Commands
 
@@ -33,26 +33,20 @@ bun run lint
 
 ### Model Files Setup
 
-Face detection models are currently loaded from CDN (jsDelivr). To use local models:
+Face detection models are self-hosted in `public/models/` (SSD MobileNet V1, Tiny Face Detector, and the optional Face Landmarks 68). The `MODEL_URLS` constant in `lib/faceApi.ts` lists the local path first with CDN fallbacks.
 
-1. Download models from: https://github.com/justadudewhohacks/face-api.js/tree/master/weights
-2. Place in `public/models/` directory:
-   - `ssd_mobilenetv1_model-weights_manifest.json`
-   - `ssd_mobilenetv1_model-shard1`
-   - `ssd_mobilenetv1_model-shard2`
-3. Update `lib/faceApi.ts:15` from `MODEL_URLS[1]` to `MODEL_URLS[0]`
-
-See `MODELS_DOWNLOAD.md` for detailed instructions.
+See `MODELS_SETUP.md` for detailed instructions.
 
 ## Architecture
 
 ### Core Workflow
 
-1. **Image Upload** (`components/ImageUploader.tsx`) - Drag & drop, click, or mobile camera
-2. **Face Detection** (`lib/faceApi.ts`) - Uses face-api.js with SSD MobileNet V1 or Tiny Face Detector
-3. **Emoji Selection** (`components/EmojiSelector.tsx`) - Emoji picker with search (supports Chinese keywords)
-4. **Canvas Display** (`components/FaceCanvas.tsx`) - Interactive preview with click-to-replace
-5. **Export** (`app/page.tsx:handleExport`) - Original quality PNG with emojis rendered
+1. **Image Upload** (`components/ImageUploader.tsx`) - Drag & drop, click, or mobile camera (object URL based)
+2. **Face Detection** (`lib/runFaceDetection.ts` → `lib/faceApi.ts`) - @vladmandic/face-api with SSD MobileNet V1 or Tiny Face Detector; large images are downscaled first via `utils/imageOptimization.ts`
+3. **Emoji Selection** (`components/EmojiSelector.tsx`) - emoji-picker-react with search, plus a random button
+4. **Canvas Display** (`components/FaceCanvas.tsx`) - Interactive preview with click-to-replace, per-face badges, devicePixelRatio rendering
+5. **Per-face Tuning** (`components/EmojiInspector.tsx`) - Bottom sheet for scale/opacity/flip on a single face
+6. **Export** (`app/page.tsx:handleExport`) - Original quality PNG drawn with the same routine as the preview (`drawEmojiReplacement`)
 
 ### State Management
 
@@ -63,14 +57,16 @@ All state is managed in `app/page.tsx` using React `useState`:
 - `replacements`: Array of `EmojiReplacement` objects mapping faces to emojis
 - `selectedEmoji`: Currently selected emoji character
 - `detectionSettings`: Face detection configuration (detector type, confidence threshold)
-- `emojiSettings`: Emoji rendering options (size, scale, opacity, flip) - **Note: offsetX/offsetY removed in v0.2.0**
+- `emojiSettings`: Global emoji rendering defaults (scale, opacity, flip)
+- `undoSnapshotRef`: Snapshot of faces + replacements taken before destructive actions (reset / re-detect), restored via the toast's undo button
 
 ### Key Data Flow
 
 ```plaintext
 1. User uploads image
    → handleImageLoad()
-   → detectFaces(image, detectionSettings)
+   → optimizeImageForDetection() (if > 1920px wide)
+   → detectAndSetFaces() → runFaceDetection()
    → setFaces(detectedFaces)
 
 2. User selects emoji
@@ -79,8 +75,7 @@ All state is managed in `app/page.tsx` using React `useState`:
 
 3. User clicks face on canvas
    → handleFaceClick(faceId)
-   → getTwemojiUrl(emoji, emojiSettings)
-   → preloadEmoji(url)
+   → preloadEmojiWithFallback(emoji)  # empty URL = native-glyph fallback
    → setReplacements([...prev, newReplacement])
 
 4. User exports image
@@ -104,17 +99,24 @@ Core types defined in `types/index.ts`:
 ```
 app/page.tsx                 # Main page with state management and orchestration
 ├── components/ImageUploader.tsx    # Image upload UI (drag & drop + camera)
-├── components/FaceCanvas.tsx       # Canvas with face boxes + emoji overlays
-├── components/EmojiSelector.tsx    # Emoji picker integration
-└── components/SettingsPanel.tsx    # Detection & emoji settings controls
+├── components/FaceCanvas.tsx       # Canvas with face boxes + emoji overlays + badges
+├── components/EmojiSelector.tsx    # Emoji picker integration + random button
+├── components/EmojiInspector.tsx   # Per-face tuning bottom sheet
+├── components/SettingsPanel.tsx    # Detection settings controls
+├── components/ModelLoadingModal.tsx # Model loading progress modal
+├── components/ProcessingOverlay.tsx # Detection progress overlay
+└── components/Toast.tsx            # Toast notifications (optional undo action)
 ```
 
 ### Utility Libraries
 
-- `lib/faceApi.ts`: face-api.js wrapper for model loading and face detection
+- `lib/faceApi.ts`: @vladmandic/face-api wrapper for model loading and face detection
+- `lib/runFaceDetection.ts`: Normalised detection pipeline (coordinate mapping back to original size)
 - `lib/twemoji.ts`: Twemoji CDN utilities for emoji URL generation and preloading
-- `lib/emojiSearch.ts`: Chinese keyword search for emojis
-- `lib/emojiRenderUtils.ts`: Emoji size calculation and positioning utilities
+- `lib/emojiImageCache.ts`: Shared emoji bitmap cache (dedupes CDN fetches, enables synchronous redraws)
+- `lib/emojiRenderUtils.ts`: Emoji size calculation and the shared `drawEmojiReplacement` routine
+- `utils/imageOptimization.ts`: Large-image downscaling and coordinate mapping
+- `hooks/`: `useFaceBadgeLayout`, `useFrameDebouncedCallback`, `useInspectorActions`
 
 ## Important Notes
 
@@ -122,15 +124,16 @@ app/page.tsx                 # Main page with state management and orchestration
 
 **Current**: Models loaded from local `/models` directory (fallback to CDN if not available)
 
-**Setup**: See `MODELS_DOWNLOAD.md` for detailed setup instructions
+**Setup**: See `MODELS_SETUP.md` for detailed setup instructions
 
-**Configuration**: `lib/faceApi.ts` line 29 - switches between local and CDN models
+**Configuration**: the `MODEL_URLS` constant in `lib/faceApi.ts` - local path first, CDN fallbacks after
 
 ### Emoji Loading
 
-- Emojis loaded from Twemoji CDN (`https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/`)
-- SVG format preferred for vector quality
+- Emojis loaded from the maintained Twemoji fork (`https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/`)
+- SVG format for vector quality; FE0F variation selectors are kept only in ZWJ sequences (Twemoji filename convention)
 - CORS enabled (`crossOrigin = 'anonymous'`) for canvas export
+- Bitmaps go through `lib/emojiImageCache.ts`; a failed CDN load falls back to drawing the native emoji glyph in both preview and export
 
 ### Canvas Export
 
@@ -143,7 +146,7 @@ Export happens at **original image resolution** (not display resolution) to main
 
 ### Settings Behavior
 
-Settings changes trigger **automatic re-application** of emojis to existing replacements (see `app/page.tsx:155-172`). This allows real-time preview of scale, opacity, and flip adjustments without re-clicking faces.
+Settings changes trigger **automatic re-application** of styles (scale, opacity, flip) to existing non-custom replacements (the `emojiSettings` effect in `app/page.tsx`). Replacements customised via the inspector (`isCustom`) are left untouched, and `emojiUrl` is never rewritten (an empty URL means native-glyph fallback and must stay that way).
 
 ### Advanced Settings Panel
 
@@ -153,12 +156,10 @@ The settings panel uses a **unified card-style design** (v0.2.0):
 - Content expands/collapses smoothly with Framer Motion
 - Matches Duolingo-inspired design language
 
-### Emoji Loading Optimization
+### Emoji Selector
 
-Emoji selector uses **lazy loading strategy** (v0.2.0):
-- Default: Shows curated grid of 140 popular emojis (fast loading)
-- On demand: Full emoji picker loads only when user clicks "加载更多"
-- Reduces initial memory footprint by ~90% and load time from 2-3s to <0.3s
+- The full emoji-picker-react panel renders only when the user expands it (collapsed by default)
+- A curated list of ~140 popular emojis backs the random button (`POPULAR_EMOJIS` in `components/EmojiSelector.tsx`)
 
 ### Known Issues
 
@@ -166,7 +167,7 @@ See `ROADMAP.md` for detailed technical debt and known issues:
 
 - ✅ Large images (>10MB) - **Solved**: Auto-compression to 1920px with coordinate mapping
 - ⚠️ Safari compatibility needs testing
-- ✅ emoji-picker-react loads ~3600 emojis - **Solved**: Lazy loading with curated grid
+- ⚠️ emoji-picker-react loads ~3600 emojis when the panel is opened - virtualization planned
 
 ## Development Guidelines
 
@@ -192,13 +193,15 @@ See `ROADMAP.md` for detailed technical debt and known issues:
 
 ## File Locations
 
-- Face detection logic: `lib/faceApi.ts`
-- Emoji utilities: `lib/twemoji.ts`
-- Emoji Chinese search: `lib/emojiSearch.ts`
+- Face detection logic: `lib/faceApi.ts`, `lib/runFaceDetection.ts`
+- Emoji utilities: `lib/twemoji.ts`, `lib/emojiImageCache.ts`
 - Emoji rendering: `lib/emojiRenderUtils.ts`
+- Image optimization: `utils/imageOptimization.ts`
 - Type definitions: `types/index.ts`
 - Main application: `app/page.tsx`
 - Components: `components/*.tsx`
-- Models: `public/models/` (self-hosted, optional)
+- Hooks: `hooks/*.ts`
+- Models: `public/models/` (self-hosted)
 - Roadmap: `ROADMAP.md`
-- Model setup guide: `MODELS_DOWNLOAD.md`
+- Model setup guide: `MODELS_SETUP.md`
+- Design specs & improvement plans: `docs/`
