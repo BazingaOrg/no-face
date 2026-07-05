@@ -51,8 +51,10 @@ export default function Toast({
               <button
                 type="button"
                 onClick={() => {
-                  onAction();
+                  // Close first: the action may show a follow-up toast,
+                  // which this close would otherwise immediately hide
                   onClose();
+                  onAction();
                 }}
                 className="shrink-0 font-bold text-sm text-blue-300 hover:text-blue-200 underline underline-offset-2 transition-colors"
               >
