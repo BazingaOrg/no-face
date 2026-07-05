@@ -2,9 +2,12 @@
  * Twemoji utility functions
  */
 
+import { loadEmojiImage } from '@/lib/emojiImageCache';
 
-// Twemoji CDN base URL
-const TWEMOJI_CDN = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/';
+// Twemoji CDN base URL.
+// twitter/twemoji is unmaintained and its `latest` tag is frozen at 14.0.2;
+// jdecked/twemoji is the maintained fork with newer Unicode coverage.
+const TWEMOJI_CDN = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/';
 
 /**
  * Get twemoji image URL for a given emoji character
@@ -23,53 +26,39 @@ export function getTwemojiUrl(emoji: string): string {
  * Convert emoji character to unicode codepoint hex string
  * Example: "😀" -> "1f600"
  *
- * Handles:
- * - Multi-codepoint emojis (skin tones, flags, etc.)
- * - Variation selectors (U+FE0F, U+FE0E)
- * - Zero-width joiners (U+200D)
+ * Twemoji filename convention: variation selectors (U+FE0F/U+FE0E) are
+ * stripped, EXCEPT in ZWJ (U+200D) sequences where they must be kept —
+ * e.g. ❤️‍🔥 is "2764-fe0f-200d-1f525.svg", while ☹️ is just "2639.svg".
  */
 function getEmojiCodepoint(emoji: string): string {
   const codepoints: string[] = [];
 
-  // Convert string to array of codepoints
   for (const char of emoji) {
     const codepoint = char.codePointAt(0);
     if (codepoint !== undefined) {
-      const hex = codepoint.toString(16);
-
-      // Filter out variation selectors (FE0F, FE0E) for Twemoji compatibility
-      // Twemoji uses the base emoji without variation selectors in URLs
-      if (hex !== 'fe0f' && hex !== 'fe0e') {
-        codepoints.push(hex);
-      }
+      codepoints.push(codepoint.toString(16));
     }
   }
 
-  return codepoints.join('-');
+  const hasZwj = codepoints.includes('200d');
+  const filtered = hasZwj
+    ? codepoints
+    : codepoints.filter((hex) => hex !== 'fe0f' && hex !== 'fe0e');
+
+  return filtered.join('-');
 }
 
 /**
- * Preload emoji image to ensure it's ready for rendering
- * Returns the loaded image or null if loading fails
+ * Preload emoji image to ensure it's ready for rendering.
+ * Backed by the shared emoji image cache, so subsequent canvas draws are synchronous.
  */
 export function preloadEmoji(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous'; // Enable CORS for canvas export
-
-    img.onload = () => resolve(img);
-
-    img.onerror = () => {
-      reject(new Error(`Failed to load emoji: ${url}`));
-    };
-
-    img.src = url;
-  });
+  return loadEmojiImage(url);
 }
 
 /**
  * Preload emoji with fallback to native rendering
- * Returns the image URL if successful, or null to use native emoji
+ * Returns the image URL if successful, or an empty URL to use native emoji
  */
 export async function preloadEmojiWithFallback(
   emoji: string
@@ -83,11 +72,4 @@ export async function preloadEmojiWithFallback(
     // Fallback to native emoji rendering
     return { url: '', useNative: true };
   }
-}
-
-/**
- * Load multiple emojis in parallel
- */
-export async function preloadEmojis(urls: string[]): Promise<HTMLImageElement[]> {
-  return Promise.all(urls.map(preloadEmoji));
 }
