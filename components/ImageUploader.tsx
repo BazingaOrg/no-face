@@ -5,42 +5,43 @@ import { motion } from 'framer-motion';
 
 interface ImageUploaderProps {
   onImageLoad: (image: HTMLImageElement, fileSize?: number) => void;
+  onError?: (message: string) => void;
   disabled?: boolean;
 }
 
-export default function ImageUploader({ onImageLoad, disabled }: ImageUploaderProps) {
+export default function ImageUploader({ onImageLoad, onError, disabled }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFile = useCallback(
     (file: File) => {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('请上传图片文件');
+        onError?.('🖼️ 只支持图片文件，请重新选择');
         return;
       }
 
       // Validate file size (max 20MB)
       const maxSize = 20 * 1024 * 1024;
       if (file.size > maxSize) {
-        alert('图片文件过大，请选择小于 20MB 的图片');
+        onError?.('📦 图片超过 20MB，请压缩后再试');
         return;
       }
 
-      // Load image
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          onImageLoad(img, file.size);
-        };
-        img.onerror = () => {
-          alert('图片加载失败，请尝试其他图片');
-        };
-        img.src = e.target?.result as string;
+      // Object URL avoids the ~1.3x base64 memory overhead of data URLs;
+      // revoke once the image is decoded — the bitmap stays usable.
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        onImageLoad(img, file.size);
       };
-      reader.readAsDataURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        onError?.('😵 图片加载失败，请尝试其他图片');
+      };
+      img.src = url;
     },
-    [onImageLoad]
+    [onImageLoad, onError]
   );
 
   const handleDrop = useCallback(
