@@ -61,7 +61,7 @@ export default function FaceCanvas({
 
     const fitToContainer = () => {
       const maxWidth = container.clientWidth || 800; // Fallback to 800px if container not ready
-      const maxHeight = Math.min(window.innerHeight * 0.7, 800); // Max 70vh or 800px
+      const maxHeight = Math.min(window.innerHeight * 0.7, 800) || 600; // Max 70vh or 800px, floor for degenerate viewports
 
       // Calculate scale to fit container
       const scaleX = maxWidth / image.naturalWidth;
