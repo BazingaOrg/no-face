@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DetectedFace, EmojiReplacement } from '@/types';
 import { motion } from 'framer-motion';
-import { calculateEmojiSize, applyUserOffsets } from '@/lib/emojiRenderUtils';
+import { drawEmojiReplacement } from '@/lib/emojiRenderUtils';
+import {
+  getLoadedEmojiImage,
+  hasEmojiImageFailed,
+  loadEmojiImage,
+} from '@/lib/emojiImageCache';
 
 import { useFaceBadgeLayout } from '@/hooks/useFaceBadgeLayout';
 
@@ -28,6 +33,8 @@ export default function FaceCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  // Bumped when an emoji image finishes loading so the draw effect re-runs
+  const [emojiLoadTick, setEmojiLoadTick] = useState(0);
   const { getBadgeRefCallback, getBadgePosition } = useFaceBadgeLayout({
     canvasWidth: canvasSize.width,
     canvasHeight: canvasSize.height,
@@ -46,27 +53,33 @@ export default function FaceCanvas({
     return map;
   }, [faces]);
 
-  // Calculate canvas dimensions and scale
+  // Calculate canvas dimensions and scale; re-fit on container resize
   useEffect(() => {
     if (!image || !containerRef.current) return;
 
     const container = containerRef.current;
-    const maxWidth = container.clientWidth || 800; // Fallback to 800px if container not ready
-    const maxHeight = Math.min(window.innerHeight * 0.7, 800); // Max 70vh or 800px
 
-    // Calculate scale to fit container
-    const scaleX = maxWidth / image.naturalWidth;
-    const scaleY = maxHeight / image.naturalHeight;
-    const fitScale = Math.min(scaleX, scaleY, 1); // Don't scale up
+    const fitToContainer = () => {
+      const maxWidth = container.clientWidth || 800; // Fallback to 800px if container not ready
+      const maxHeight = Math.min(window.innerHeight * 0.7, 800); // Max 70vh or 800px
 
-    const calculatedWidth = image.naturalWidth * fitScale;
-    const calculatedHeight = image.naturalHeight * fitScale;
+      // Calculate scale to fit container
+      const scaleX = maxWidth / image.naturalWidth;
+      const scaleY = maxHeight / image.naturalHeight;
+      const fitScale = Math.min(scaleX, scaleY, 1); // Don't scale up
 
-    setScale(fitScale);
-    setCanvasSize({
-      width: calculatedWidth,
-      height: calculatedHeight,
-    });
+      setScale(fitScale);
+      setCanvasSize({
+        width: image.naturalWidth * fitScale,
+        height: image.naturalHeight * fitScale,
+      });
+    };
+
+    fitToContainer();
+
+    const observer = new ResizeObserver(fitToContainer);
+    observer.observe(container);
+    return () => observer.disconnect();
   }, [image]);
 
   // Draw image, face boxes, and emojis
@@ -80,11 +93,17 @@ export default function FaceCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Render at devicePixelRatio for crisp output on HiDPI screens;
+    // all drawing below stays in CSS-pixel coordinates.
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(canvasSize.width * dpr);
+    canvas.height = Math.round(canvasSize.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
 
     // 1. Draw original image
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvasSize.width, canvasSize.height);
 
     // 2. Draw face boxes
     faces.forEach((face) => {
@@ -117,97 +136,47 @@ export default function FaceCanvas({
       }
     });
 
-    // 3. Draw emoji replacements
+    // 3. Draw emoji replacements synchronously from the shared cache.
+    // Cache misses trigger a load and a full redraw once settled — async
+    // callbacks never draw directly, so a superseded frame can't leave
+    // ghosts on a newer one.
+    let cancelled = false;
+
     replacements.forEach((replacement) => {
       const face = faceMap.get(replacement.faceId);
       if (!face) return;
 
-      // If emojiUrl is empty, use native emoji rendering
-      if (!replacement.emojiUrl) {
-        // Calculate adaptive emoji size
-        const emojiSize = calculateEmojiSize(
-          face.box.width * scale,
-          face.box.height * scale,
-          replacement.scale || 1
-        );
+      const box = {
+        x: face.box.x * scale,
+        y: face.box.y * scale,
+        width: face.box.width * scale,
+        height: face.box.height * scale,
+      };
 
-        // Apply user-defined offsets
-        const offsets = applyUserOffsets(
-          emojiSize.offsetX,
-          emojiSize.offsetY,
-          (replacement.offsetX || 0) * scale,
-          (replacement.offsetY || 0) * scale
-        );
+      const url = replacement.emojiUrl;
 
-        // Calculate center position
-        const centerX = face.box.x * scale + offsets.offsetX + emojiSize.width / 2;
-        const centerY = face.box.y * scale + offsets.offsetY + emojiSize.height / 2;
-
-        // Apply opacity and rotation
-        const previousAlpha = ctx.globalAlpha;
-        ctx.globalAlpha = replacement.opacity || 1.0;
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        
-        // Apply flip transformations
-        const scaleX = replacement.flipX ? -1 : 1;
-        const scaleY = replacement.flipY ? -1 : 1;
-        ctx.scale(scaleX, scaleY);
-
-        // Draw native emoji text (centered)
-        const fontSize = emojiSize.width * 0.8;
-        ctx.font = `${fontSize}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(replacement.emoji, 0, 0);
-
-        ctx.restore();
-        ctx.globalAlpha = previousAlpha;
+      // Empty URL or a known-failed CDN load → native emoji glyph
+      if (!url || hasEmojiImageFailed(url)) {
+        drawEmojiReplacement(ctx, box, replacement, null);
         return;
       }
 
-      // Load and draw emoji image from Twemoji CDN
-      const emojiImg = new Image();
-      emojiImg.crossOrigin = 'anonymous';
-      emojiImg.onload = () => {
-        // Calculate adaptive emoji size
-        const emojiSize = calculateEmojiSize(
-          face.box.width * scale,
-          face.box.height * scale,
-          replacement.scale || 1
-        );
+      const cachedImage = getLoadedEmojiImage(url);
+      if (cachedImage) {
+        drawEmojiReplacement(ctx, box, replacement, cachedImage);
+        return;
+      }
 
-        // Calculate center position with adaptive offsets
-        const centerX = face.box.x * scale + emojiSize.offsetX + emojiSize.width / 2;
-        const centerY = face.box.y * scale + emojiSize.offsetY + emojiSize.height / 2;
-
-        // Apply opacity and rotation
-        const previousAlpha = ctx.globalAlpha;
-        ctx.globalAlpha = replacement.opacity || 1.0;
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        
-        // Apply flip transformations
-        const scaleX = replacement.flipX ? -1 : 1;
-        const scaleY = replacement.flipY ? -1 : 1;
-        ctx.scale(scaleX, scaleY);
-
-        // Draw emoji image centered at origin
-        ctx.drawImage(
-          emojiImg,
-          -emojiSize.width / 2,
-          -emojiSize.height / 2,
-          emojiSize.width,
-          emojiSize.height
-        );
-
-        ctx.restore();
-        ctx.globalAlpha = previousAlpha;
-      };
-      emojiImg.src = replacement.emojiUrl;
+      loadEmojiImage(url)
+        .catch(() => null)
+        .then(() => {
+          if (!cancelled) setEmojiLoadTick((tick) => tick + 1);
+        });
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     image,
     faces,
@@ -218,6 +187,7 @@ export default function FaceCanvas({
     activeReplacementId,
     faceMap,
     replacementMap,
+    emojiLoadTick,
   ]);
 
   // Handle canvas click to select face
@@ -270,8 +240,6 @@ export default function FaceCanvas({
       >
         <canvas
           ref={canvasRef}
-          width={canvasSize.width}
-          height={canvasSize.height}
           onClick={handleCanvasClick}
           className="glass-panel cursor-pointer transition-shadow"
           style={{

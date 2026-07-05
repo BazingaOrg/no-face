@@ -1,7 +1,11 @@
 /**
  * Emoji rendering utilities
- * Handles adaptive sizing to prevent emoji distortion
+ * Handles adaptive sizing to prevent emoji distortion, and provides the
+ * single draw routine shared by the canvas preview and the export pipeline
+ * so both stay pixel-identical.
  */
+
+import type { EmojiReplacement } from '@/types';
 
 export interface EmojiRenderSize {
   width: number;
@@ -54,18 +58,50 @@ export function calculateEmojiSize(
 }
 
 /**
- * Apply user offset adjustments to calculated offsets
- * Note: User offset feature has been removed, this function is kept for backwards compatibility
- * @deprecated This function is no longer used and may be removed in future versions
+ * Draw a single emoji replacement onto a canvas context.
+ *
+ * @param ctx - Target 2D context
+ * @param box - Face bounding box in the target canvas coordinate space
+ *              (callers pre-scale it for display canvases)
+ * @param replacement - Replacement carrying emoji character and transforms
+ * @param image - Preloaded Twemoji bitmap; pass null to render the native
+ *                emoji glyph instead (CDN failure fallback)
  */
-export function applyUserOffsets(
-  calculatedOffsetX: number,
-  calculatedOffsetY: number,
-  userOffsetX: number = 0,
-  userOffsetY: number = 0
-): { offsetX: number; offsetY: number } {
-  return {
-    offsetX: calculatedOffsetX + userOffsetX,
-    offsetY: calculatedOffsetY + userOffsetY,
-  };
+export function drawEmojiReplacement(
+  ctx: CanvasRenderingContext2D,
+  box: { x: number; y: number; width: number; height: number },
+  replacement: Pick<EmojiReplacement, 'emoji' | 'scale' | 'opacity' | 'flipX' | 'flipY'>,
+  image: HTMLImageElement | null
+): void {
+  const emojiSize = calculateEmojiSize(box.width, box.height, replacement.scale || 1);
+
+  const centerX = box.x + emojiSize.offsetX + emojiSize.width / 2;
+  const centerY = box.y + emojiSize.offsetY + emojiSize.height / 2;
+
+  const previousAlpha = ctx.globalAlpha;
+  ctx.globalAlpha = replacement.opacity ?? 1;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.scale(replacement.flipX ? -1 : 1, replacement.flipY ? -1 : 1);
+
+  if (image) {
+    ctx.drawImage(
+      image,
+      -emojiSize.width / 2,
+      -emojiSize.height / 2,
+      emojiSize.width,
+      emojiSize.height
+    );
+  } else {
+    // Native emoji glyph fallback
+    const fontSize = emojiSize.width * 0.8;
+    ctx.font = `${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(replacement.emoji, 0, 0);
+  }
+
+  ctx.restore();
+  ctx.globalAlpha = previousAlpha;
 }
