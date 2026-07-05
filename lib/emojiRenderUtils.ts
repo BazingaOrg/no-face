@@ -57,12 +57,41 @@ export function calculateEmojiSize(
   };
 }
 
+export interface EmojiScreenRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Compute the emoji's drawn rectangle for a face box, given an optional
+ * user-dragged position offset. `box` and `offset` must already be in the
+ * same coordinate space (callers pre-scale both for display canvases).
+ * Shared by drawing and drag hit-testing so they never disagree.
+ */
+export function getEmojiScreenRect(
+  box: { x: number; y: number; width: number; height: number },
+  offset: { x: number; y: number },
+  scale: number = 1
+): EmojiScreenRect {
+  const emojiSize = calculateEmojiSize(box.width, box.height, scale);
+  return {
+    x: box.x + emojiSize.offsetX + offset.x,
+    y: box.y + emojiSize.offsetY + offset.y,
+    width: emojiSize.width,
+    height: emojiSize.height,
+  };
+}
+
 /**
  * Draw a single emoji replacement onto a canvas context.
  *
  * @param ctx - Target 2D context
  * @param box - Face bounding box in the target canvas coordinate space
  *              (callers pre-scale it for display canvases)
+ * @param offset - User-dragged position offset, in the same coordinate
+ *                 space as `box` (callers pre-scale this too)
  * @param replacement - Replacement carrying emoji character and transforms
  * @param image - Preloaded Twemoji bitmap; pass null to render the native
  *                emoji glyph instead (CDN failure fallback)
@@ -70,13 +99,13 @@ export function calculateEmojiSize(
 export function drawEmojiReplacement(
   ctx: CanvasRenderingContext2D,
   box: { x: number; y: number; width: number; height: number },
+  offset: { x: number; y: number },
   replacement: Pick<EmojiReplacement, 'emoji' | 'scale' | 'opacity' | 'flipX' | 'flipY'>,
   image: HTMLImageElement | null
 ): void {
-  const emojiSize = calculateEmojiSize(box.width, box.height, replacement.scale || 1);
-
-  const centerX = box.x + emojiSize.offsetX + emojiSize.width / 2;
-  const centerY = box.y + emojiSize.offsetY + emojiSize.height / 2;
+  const rect = getEmojiScreenRect(box, offset, replacement.scale || 1);
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
 
   const previousAlpha = ctx.globalAlpha;
   ctx.globalAlpha = replacement.opacity ?? 1;
@@ -88,14 +117,14 @@ export function drawEmojiReplacement(
   if (image) {
     ctx.drawImage(
       image,
-      -emojiSize.width / 2,
-      -emojiSize.height / 2,
-      emojiSize.width,
-      emojiSize.height
+      -rect.width / 2,
+      -rect.height / 2,
+      rect.width,
+      rect.height
     );
   } else {
     // Native emoji glyph fallback
-    const fontSize = emojiSize.width * 0.8;
+    const fontSize = rect.width * 0.8;
     ctx.font = `${fontSize}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

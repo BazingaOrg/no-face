@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DetectedFace, EmojiReplacement } from '@/types';
 import { motion } from 'framer-motion';
-import { drawEmojiReplacement } from '@/lib/emojiRenderUtils';
+import { drawEmojiReplacement, getEmojiScreenRect } from '@/lib/emojiRenderUtils';
 import {
   getLoadedEmojiImage,
   hasEmojiImageFailed,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/emojiImageCache';
 
 import { useFaceBadgeLayout } from '@/hooks/useFaceBadgeLayout';
+import { useFrameDebouncedCallback } from '@/hooks/useFrameDebouncedCallback';
 
 interface FaceCanvasProps {
   image: HTMLImageElement | null;
@@ -19,6 +20,23 @@ interface FaceCanvasProps {
   onFaceClick: (faceId: string) => void;
   onInspectFace?: (faceId: string) => void;
   activeReplacementId?: string | null;
+  // Called while the active (inspected) face's emoji is being dragged on
+  // the canvas; only that face can be repositioned this way.
+  onRepositionActiveEmoji?: (patch: Partial<EmojiReplacement>) => void;
+}
+
+// CSS-pixel movement threshold before a pointer-down on the active emoji
+// counts as a drag rather than a tap (which still applies the selected emoji)
+const DRAG_THRESHOLD_PX = 4;
+
+interface DragState {
+  pointerId: number;
+  faceId: string;
+  startClientX: number;
+  startClientY: number;
+  baseOffsetX: number;
+  baseOffsetY: number;
+  isDragging: boolean;
 }
 
 export default function FaceCanvas({
@@ -28,6 +46,7 @@ export default function FaceCanvas({
   onFaceClick,
   onInspectFace,
   activeReplacementId,
+  onRepositionActiveEmoji,
 }: FaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -152,18 +171,22 @@ export default function FaceCanvas({
         width: face.box.width * scale,
         height: face.box.height * scale,
       };
+      const offset = {
+        x: (replacement.offsetX ?? 0) * scale,
+        y: (replacement.offsetY ?? 0) * scale,
+      };
 
       const url = replacement.emojiUrl;
 
       // Empty URL or a known-failed CDN load → native emoji glyph
       if (!url || hasEmojiImageFailed(url)) {
-        drawEmojiReplacement(ctx, box, replacement, null);
+        drawEmojiReplacement(ctx, box, offset, replacement, null);
         return;
       }
 
       const cachedImage = getLoadedEmojiImage(url);
       if (cachedImage) {
-        drawEmojiReplacement(ctx, box, replacement, cachedImage);
+        drawEmojiReplacement(ctx, box, offset, replacement, cachedImage);
         return;
       }
 
@@ -190,9 +213,130 @@ export default function FaceCanvas({
     emojiLoadTick,
   ]);
 
+  const scheduleReposition = useFrameDebouncedCallback(
+    useCallback(
+      (patch: Partial<EmojiReplacement>) => onRepositionActiveEmoji?.(patch),
+      [onRepositionActiveEmoji]
+    )
+  );
+
+  // Screen-space (CSS px) rect of the active face's emoji, used for drag hit-testing
+  const getActiveEmojiRect = useCallback(() => {
+    if (!activeReplacementId) return null;
+    const face = faceMap.get(activeReplacementId);
+    const replacement = replacementMap.get(activeReplacementId);
+    if (!face || !replacement) return null;
+
+    const box = {
+      x: face.box.x * scale,
+      y: face.box.y * scale,
+      width: face.box.width * scale,
+      height: face.box.height * scale,
+    };
+    const offset = {
+      x: (replacement.offsetX ?? 0) * scale,
+      y: (replacement.offsetY ?? 0) * scale,
+    };
+    return getEmojiScreenRect(box, offset, replacement.scale || 1);
+  }, [activeReplacementId, faceMap, replacementMap, scale]);
+
+  const dragStateRef = useRef<DragState | null>(null);
+  // Set once a drag crosses the threshold, so the click that follows
+  // pointerup is suppressed (a drag shouldn't also re-apply the emoji)
+  const justDraggedRef = useRef(false);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!onRepositionActiveEmoji || !activeReplacementId) return;
+
+    const rect = getActiveEmojiRect();
+    if (!rect) return;
+
+    const canvasRect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - canvasRect.left;
+    const y = e.clientY - canvasRect.top;
+
+    if (x < rect.x || x > rect.x + rect.width || y < rect.y || y > rect.y + rect.height) {
+      return;
+    }
+
+    const activeReplacement = replacementMap.get(activeReplacementId);
+    try {
+      // Some browsers (notably older iOS Safari) can reject capture for a
+      // pointerId that isn't tracked internally; degrade to "no drag" rather
+      // than letting the exception abort the rest of this handler.
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      return;
+    }
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      faceId: activeReplacementId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      baseOffsetX: activeReplacement?.offsetX ?? 0,
+      baseOffsetY: activeReplacement?.offsetY ?? 0,
+      isDragging: false,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) {
+      // Not dragging: show a grab cursor when hovering the draggable emoji
+      if (onRepositionActiveEmoji && activeReplacementId) {
+        const rect = getActiveEmojiRect();
+        const canvasRect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - canvasRect.left;
+        const y = e.clientY - canvasRect.top;
+        const hovering =
+          !!rect &&
+          x >= rect.x &&
+          x <= rect.x + rect.width &&
+          y >= rect.y &&
+          y <= rect.y + rect.height;
+        e.currentTarget.style.cursor = hovering ? 'grab' : 'pointer';
+      }
+      return;
+    }
+
+    const deltaX = (e.clientX - drag.startClientX) / scale;
+    const deltaY = (e.clientY - drag.startClientY) / scale;
+
+    if (!drag.isDragging) {
+      const distance = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY);
+      if (distance < DRAG_THRESHOLD_PX) return;
+      drag.isDragging = true;
+      e.currentTarget.style.cursor = 'grabbing';
+    }
+
+    scheduleReposition({
+      offsetX: drag.baseOffsetX + deltaX,
+      offsetY: drag.baseOffsetY + deltaY,
+    });
+  };
+
+  const endDrag = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+
+    if (drag.isDragging) {
+      justDraggedRef.current = true;
+      e.currentTarget.style.cursor = 'grab';
+    }
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    dragStateRef.current = null;
+  };
+
   // Handle canvas click to select face
   // No selected-emoji guard: the parent decides how to respond (e.g. prompt to pick one)
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (justDraggedRef.current) {
+      justDraggedRef.current = false;
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -241,7 +385,11 @@ export default function FaceCanvas({
         <canvas
           ref={canvasRef}
           onClick={handleCanvasClick}
-          className="glass-panel cursor-pointer transition-shadow"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className="glass-panel cursor-pointer transition-shadow touch-none"
           style={{
             width: canvasSize.width || '100%',
             height: canvasSize.height || 'auto',

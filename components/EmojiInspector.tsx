@@ -114,6 +114,10 @@ export default function EmojiInspector({
         </div>
       </div>
 
+      <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+        💡 在图片上拖动表情可调整位置
+      </p>
+
       <div className="grid gap-6 md:grid-cols-2">
         <section className={SECTION_CLASS}>
           <header className="flex items-center justify-between gap-3">

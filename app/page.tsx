@@ -411,7 +411,6 @@ export default function Home() {
                 faceId,
                 emoji: selectedEmoji,
                 emojiUrl: result.url,
-                position: face.box,
                 scale: emojiSettings.scale,
                 opacity: emojiSettings.opacity,
                 flipX: emojiSettings.flipX,
@@ -448,7 +447,6 @@ export default function Home() {
           faceId: face.id,
           emoji: selectedEmoji,
           emojiUrl: result.url,
-          position: face.box,
           scale: emojiSettings.scale,
           opacity: emojiSettings.opacity,
           flipX: emojiSettings.flipX,
@@ -572,7 +570,8 @@ export default function Home() {
         }
       }
 
-      drawEmojiReplacement(ctx, face.box, replacement, emojiImage);
+      const offset = { x: replacement.offsetX ?? 0, y: replacement.offsetY ?? 0 };
+      drawEmojiReplacement(ctx, face.box, offset, replacement, emojiImage);
     });
 
     // Export after all emojis are drawn
@@ -725,6 +724,7 @@ export default function Home() {
                 onFaceClick={handleFaceClick}
                 onInspectFace={handleInspectFace}
                 activeReplacementId={activeReplacementId}
+                onRepositionActiveEmoji={handleInspectorUpdate}
               />
             </motion.div>
           )}

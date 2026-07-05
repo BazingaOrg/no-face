@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateEmojiSize } from './emojiRenderUtils';
+import { calculateEmojiSize, getEmojiScreenRect } from './emojiRenderUtils';
 
 describe('calculateEmojiSize', () => {
   it('uses the larger dimension for a nearly square face', () => {
@@ -43,5 +43,32 @@ describe('calculateEmojiSize', () => {
       const size = calculateEmojiSize(w, h, 1.5);
       expect(size.width).toBe(size.height);
     }
+  });
+});
+
+describe('getEmojiScreenRect', () => {
+  it('centers the emoji within the box when offset is zero', () => {
+    const rect = getEmojiScreenRect({ x: 10, y: 20, width: 100, height: 100 }, { x: 0, y: 0 }, 1);
+    expect(rect).toEqual({ x: 10, y: 20, width: 100, height: 100 });
+  });
+
+  it('applies a drag offset on top of the centered position', () => {
+    const rect = getEmojiScreenRect(
+      { x: 10, y: 20, width: 100, height: 100 },
+      { x: 15, y: -5 },
+      1
+    );
+    expect(rect).toEqual({ x: 25, y: 15, width: 100, height: 100 });
+  });
+
+  it('combines auto-centering (for non-square faces) with the drag offset', () => {
+    // wide face (200x100) auto-centers horizontally by +50 before the drag offset
+    const rect = getEmojiScreenRect(
+      { x: 0, y: 0, width: 200, height: 100 },
+      { x: 10, y: 0 },
+      1
+    );
+    expect(rect.x).toBe(60); // 50 (auto-center) + 10 (drag)
+    expect(rect.width).toBe(100);
   });
 });

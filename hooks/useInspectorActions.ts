@@ -42,6 +42,9 @@ export function useInspectorActions({
         opacity: emojiSettings.opacity,
         flipX: emojiSettings.flipX,
         flipY: emojiSettings.flipY,
+        // Global defaults have no position concept — reset re-centers the emoji
+        offsetX: 0,
+        offsetY: 0,
       },
       { customState: false }
     );

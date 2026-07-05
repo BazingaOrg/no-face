@@ -22,16 +22,14 @@ export interface EmojiReplacement {
   faceId: string;
   emoji: string;
   emojiUrl: string;
-  position: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
   scale?: number;
   opacity?: number;
   flipX?: boolean;
   flipY?: boolean;
+  // User-dragged position adjustment, in original-image pixels, relative to
+  // the emoji's auto-centered position. Callers scale this for display.
+  offsetX?: number;
+  offsetY?: number;
   isCustom?: boolean;
 }
 
