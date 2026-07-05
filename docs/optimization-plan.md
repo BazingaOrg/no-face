@@ -12,8 +12,9 @@
 > ✅ Phase 5 完成 — vitest 单测（14 例，含 ZWJ 回归）、GitHub Actions CI（lint/typecheck/test/build）、CSP 与安全响应头（已在预览中验证无违规）。
 > ✅ Phase 6 启动 — PWA 离线支持已完成：`public/sw.js`（app shell + 全部模型 + 已用 Twemoji 缓存优先，导航网络优先带缓存回退）、`components/ServiceWorkerRegistration.tsx`（仅生产环境注册；开发环境主动注销遗留 SW，避免 `_next/static` 热更新期间被旧缓存劫持）、`site.webmanifest` 补全中文名称/主题色/maskable 图标。已在生产构建的预览中验证：SW 激活、缓存命中全部模型与页面资源、彻底关闭服务器进程后浏览器仍可继续访问缓存内容。
 > ✅ Phase 6 续 — 拖拽重定位表情已完成：仅限当前微调中的人脸（`activeReplacementId`）可拖拽，4px 阈值区分"点击"（仍应用表情）与"拖拽"（调整位置并标记 `isCustom`）；位置以 `offsetX/offsetY`（原图像素）存储，预览与导出通过共享的 `getEmojiScreenRect`/`drawEmojiReplacement` 保持像素一致；「恢复默认值」一并回正位置。已通过真实 pointer 事件 + React 状态直读（非 DOM 文本猜测）验证数值与方向正确；顺手删除了早已死掉的 `EmojiReplacement.position` 字段（写入但从未读取）。
-> ⬜ 待做 — Phase 6 其余功能项（撤销重做扩展为完整历史栈、中文搜索恢复、实时相机）与 3.7 可选瘦身。
-> 已通过蒙娜丽莎图端到端验证（含 CSP 开启后回归、PWA 离线回归、拖拽重定位回归）：上传 → 检测 → 引导 → 替换（Twemoji 新 CDN）→ 微调拖拽 → 重置 → 撤销恢复。
+> ✅ Phase 6 续 — 完整撤销/重做历史栈已完成：`{faces, replacements}` 快照栈（上限 50），覆盖点脸替换/全部替换/重置/重新检测/微调面板按钮全部一次性动作；连续手势（滑杆拖动、画布拖拽位置）通过单独的 `onBeginEdit`/`onBeginDragReposition` 只在手势开始时记一条历史，不会每帧刷屏；Ctrl/Cmd+Z 与 Ctrl/Cmd+Shift+Z 全局生效，输入框聚焦时自动让位给原生文本撤销；新动作会正确丢弃陈旧的 redo 分支；换图/换一张清空历史。已通过直读 React state（而非 DOM 文本）逐步验证：多步撤销/重做、按钮与快捷键结果一致、redo 丢弃逻辑、输入框守卫。
+> ⬜ 待做 — Phase 6 剩余功能项（中文搜索恢复、实时相机）与 3.7 可选瘦身。
+> 已通过蒙娜丽莎图端到端验证（含 CSP 开启后回归、PWA 离线回归、拖拽重定位回归、撤销重做栈回归）：上传 → 检测 → 引导 → 替换（Twemoji 新 CDN）→ 微调拖拽 → 撤销/重做 → 重置 → 撤销恢复。
 
 ---
 
