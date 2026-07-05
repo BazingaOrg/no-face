@@ -80,7 +80,7 @@ export default function EmojiSelector({
           onClick={onToggle}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="py-3 px-5 bg-gradient-to-r from-blue-400 to-purple-500 hover:from-blue-500 hover:to-purple-600 text-white rounded-2xl font-black text-lg shadow-lg transition-all flex items-center justify-between border-b-4 border-purple-600 active:border-b-0 active:mt-1 max-w-xs flex-1"
+          className="py-3 px-5 text-lg btn-duo btn-secondary justify-between max-w-xs flex-1"
         >
           <span>
             {selectedEmoji ? (

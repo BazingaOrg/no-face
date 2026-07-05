@@ -234,7 +234,7 @@ export default function EmojiInspector({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onAdoptAsDefault}
-          className="gradient-action bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white border-green-600"
+          className="gradient-action btn-ghost"
         >
           设为默认
         </motion.button>
@@ -243,7 +243,7 @@ export default function EmojiInspector({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onApplyToAll}
-          className="gradient-action bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white border-orange-600"
+          className="gradient-action btn-secondary"
         >
           全部应用
         </motion.button>
@@ -252,7 +252,7 @@ export default function EmojiInspector({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onResetToDefault}
-          className="gradient-action bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white border-gray-700"
+          className="gradient-action btn-ghost"
         >
           恢复默认值
         </motion.button>
@@ -261,7 +261,7 @@ export default function EmojiInspector({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onClose}
-          className="gradient-action bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white border-blue-600"
+          className="gradient-action btn-ghost"
         >
           完成
         </motion.button>

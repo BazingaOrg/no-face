@@ -232,7 +232,7 @@ export default function SettingsPanel({
               }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="gradient-action bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 dark:from-slate-600 dark:to-slate-700 dark:hover:from-slate-700 dark:hover:to-slate-800 text-white border-gray-700 dark:border-slate-900"
+              className="gradient-action btn-ghost"
             >
               🔄 恢复默认设置
             </motion.button>

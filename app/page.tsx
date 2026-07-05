@@ -810,7 +810,7 @@ export default function Home() {
                   onClick={handleRedetect}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="text-sm px-3 py-1.5 bg-gradient-to-r from-blue-300 to-blue-400 hover:from-blue-400 hover:to-blue-500 dark:from-blue-600 dark:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 text-white rounded-xl font-bold shadow-sm transition-all border-b-2 border-blue-500 dark:border-blue-900 active:border-b-0 active:mt-0.5"
+                  className="text-sm px-3 py-1.5 btn-duo btn-secondary"
                 >
                   🔄 重新检测
                 </motion.button>
@@ -828,7 +828,7 @@ export default function Home() {
                   }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="text-sm px-3 py-1.5 bg-gradient-to-r from-indigo-300 to-indigo-400 hover:from-indigo-400 hover:to-indigo-500 dark:from-indigo-600 dark:to-indigo-700 dark:hover:from-indigo-700 dark:hover:to-indigo-800 text-white rounded-xl font-bold shadow-sm transition-all border-b-2 border-indigo-500 dark:border-indigo-900 active:border-b-0 active:mt-0.5"
+                  className="text-sm px-3 py-1.5 btn-duo btn-ghost"
                 >
                   📤 换一张
                 </motion.button>
@@ -866,10 +866,8 @@ export default function Home() {
                 whileHover={selectedEmoji ? { scale: 1.05 } : {}}
                 whileTap={selectedEmoji ? { scale: 0.95 } : {}}
                 disabled={!selectedEmoji}
-                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 ${
-                  selectedEmoji
-                    ? 'bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white border-b-4 border-green-600 active:border-b-0 active:mt-1 cursor-pointer'
-                    : 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 border-b-4 border-gray-400 cursor-not-allowed opacity-60'
+                className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
+                  selectedEmoji ? 'btn-secondary' : 'btn-disabled'
                 }`}
                 title={!selectedEmoji ? '请先选择表情' : ''}
               >
@@ -882,10 +880,8 @@ export default function Home() {
                 whileHover={replacements.length > 0 ? { scale: 1.05 } : {}}
                 whileTap={replacements.length > 0 ? { scale: 0.95 } : {}}
                 disabled={replacements.length === 0}
-                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 ${
-                  replacements.length > 0
-                    ? 'bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white border-b-4 border-gray-600 active:border-b-0 active:mt-1 cursor-pointer'
-                    : 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 border-b-4 border-gray-400 cursor-not-allowed opacity-60'
+                className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
+                  replacements.length > 0 ? 'btn-ghost' : 'btn-disabled'
                 }`}
                 title={replacements.length === 0 ? '暂无可重置的内容' : ''}
               >
@@ -897,10 +893,8 @@ export default function Home() {
                 whileHover={replacements.length > 0 ? { scale: 1.05 } : {}}
                 whileTap={replacements.length > 0 ? { scale: 0.95 } : {}}
                 disabled={replacements.length === 0}
-                className={`px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-sm md:text-base shadow-lg transition-all flex items-center gap-2 ${
-                  replacements.length > 0
-                    ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-white border-b-4 border-yellow-600 active:border-b-0 active:mt-1 cursor-pointer'
-                    : 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 border-b-4 border-gray-400 cursor-not-allowed opacity-60'
+                className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
+                  replacements.length > 0 ? 'btn-primary' : 'btn-disabled'
                 }`}
                 title={replacements.length === 0 ? '请先替换表情' : ''}
               >
