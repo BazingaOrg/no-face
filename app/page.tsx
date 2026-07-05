@@ -26,8 +26,9 @@ import {
   isModelLoaded,
   setModelLoadingProgressCallback
 } from '@/lib/faceApi';
-import { getTwemojiUrl, preloadEmojiWithFallback } from '@/lib/twemoji';
-import { calculateEmojiSize, applyUserOffsets } from '@/lib/emojiRenderUtils';
+import { preloadEmojiWithFallback } from '@/lib/twemoji';
+import { drawEmojiReplacement } from '@/lib/emojiRenderUtils';
+import { loadEmojiImage } from '@/lib/emojiImageCache';
 import { 
   optimizeImageForDetection,
   getImageSizeCategory,
@@ -243,23 +244,20 @@ export default function Home() {
   }, [detectionSettings.detector]);
 
   // Auto-apply emoji settings when they change
-  // Only update styles (scale, opacity, flip), not the emoji itself
+  // Only update styles (scale, opacity, flip). Never touch emojiUrl here:
+  // an empty URL means the replacement fell back to native rendering and
+  // must stay that way.
   useEffect(() => {
     if (replacements.length === 0) return;
 
     setReplacements((prev) =>
       prev.map((replacement) => {
-        const withUrl = {
-          ...replacement,
-          emojiUrl: getTwemojiUrl(replacement.emoji),
-        };
-
         if (replacement.isCustom) {
-          return withUrl;
+          return replacement;
         }
 
         return {
-          ...withUrl,
+          ...replacement,
           scale: emojiSettings.scale,
           opacity: emojiSettings.opacity,
           flipX: emojiSettings.flipX,
@@ -409,14 +407,36 @@ export default function Home() {
     [selectedEmoji, faces, emojiSettings]
   );
 
-  // Apply to all faces
+  // Apply to all faces: preload the emoji once, then build all replacements
+  // in a single state update (the previous per-face loop preloaded the same
+  // emoji N times sequentially)
   const handleApplyToAll = useCallback(async () => {
     if (!selectedEmoji) return;
 
-    for (const face of faces) {
-      await handleFaceClick(face.id);
-    }
-  }, [selectedEmoji, faces, handleFaceClick]);
+    const result = await preloadEmojiWithFallback(selectedEmoji);
+
+    setReplacements((prev) => {
+      const previousByFaceId = new Map(prev.map((r) => [r.faceId, r]));
+
+      return faces.map((face) => {
+        const existing = previousByFaceId.get(face.id);
+        if (existing) {
+          return { ...existing, emoji: selectedEmoji, emojiUrl: result.url };
+        }
+        return {
+          faceId: face.id,
+          emoji: selectedEmoji,
+          emojiUrl: result.url,
+          position: face.box,
+          scale: emojiSettings.scale,
+          opacity: emojiSettings.opacity,
+          flipX: emojiSettings.flipX,
+          flipY: emojiSettings.flipY,
+          isCustom: false,
+        };
+      });
+    });
+  }, [selectedEmoji, faces, emojiSettings]);
 
   // Reset all replacements
   const handleReset = useCallback(() => {
@@ -505,112 +525,26 @@ export default function Home() {
     // Draw original image
     ctx.drawImage(image, 0, 0);
 
-    // Load and draw all emojis
-    const loadPromises = replacements.map((replacement) => {
-      return new Promise<void>((resolve) => {
-        const face = faces.find((f) => f.id === replacement.faceId);
-        if (!face) {
-          resolve();
-          return;
+    // Draw all emojis with the same routine the preview uses.
+    // Images come from the shared cache (already loaded during preview);
+    // a failed CDN load falls back to the native emoji glyph instead of
+    // silently dropping the emoji from the export.
+    const faceById = new Map(faces.map((face) => [face.id, face]));
+
+    const loadPromises = replacements.map(async (replacement) => {
+      const face = faceById.get(replacement.faceId);
+      if (!face) return;
+
+      let emojiImage: HTMLImageElement | null = null;
+      if (replacement.emojiUrl) {
+        try {
+          emojiImage = await loadEmojiImage(replacement.emojiUrl);
+        } catch {
+          emojiImage = null;
         }
+      }
 
-        // If emojiUrl is empty, use native emoji rendering
-        if (!replacement.emojiUrl) {
-          // Calculate adaptive emoji size
-          const emojiSize = calculateEmojiSize(
-            face.box.width,
-            face.box.height,
-            replacement.scale || 1
-          );
-
-          // Apply user-defined offsets
-          const offsets = applyUserOffsets(
-            emojiSize.offsetX,
-            emojiSize.offsetY,
-            replacement.offsetX || 0,
-            replacement.offsetY || 0
-          );
-
-          // Calculate center position
-          const centerX = face.box.x + offsets.offsetX + emojiSize.width / 2;
-          const centerY = face.box.y + offsets.offsetY + emojiSize.height / 2;
-
-          // Apply opacity and rotation
-          const previousAlpha = ctx.globalAlpha;
-          ctx.globalAlpha = replacement.opacity || 1.0;
-
-          ctx.save();
-          ctx.translate(centerX, centerY);
-          
-          // Apply flip transformations
-          const scaleX = replacement.flipX ? -1 : 1;
-          const scaleY = replacement.flipY ? -1 : 1;
-          ctx.scale(scaleX, scaleY);
-
-          // Draw native emoji text (centered)
-          const fontSize = emojiSize.width * 0.8;
-          ctx.font = `${fontSize}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(replacement.emoji, 0, 0);
-
-          ctx.restore();
-          ctx.globalAlpha = previousAlpha;
-          resolve();
-          return;
-        }
-
-        // Load and draw emoji image from Twemoji CDN
-        const emojiImg = new Image();
-        emojiImg.crossOrigin = 'anonymous';
-        emojiImg.onload = () => {
-          // Calculate adaptive emoji size
-          const emojiSize = calculateEmojiSize(
-            face.box.width,
-            face.box.height,
-            replacement.scale || 1
-          );
-
-          // Apply user-defined offsets
-          const offsets = applyUserOffsets(
-            emojiSize.offsetX,
-            emojiSize.offsetY,
-            replacement.offsetX || 0,
-            replacement.offsetY || 0
-          );
-
-          // Calculate center position
-          const centerX = face.box.x + offsets.offsetX + emojiSize.width / 2;
-          const centerY = face.box.y + offsets.offsetY + emojiSize.height / 2;
-
-          // Apply opacity and rotation
-          const previousAlpha = ctx.globalAlpha;
-          ctx.globalAlpha = replacement.opacity || 1.0;
-
-          ctx.save();
-          ctx.translate(centerX, centerY);
-          
-          // Apply flip transformations
-          const scaleX = replacement.flipX ? -1 : 1;
-          const scaleY = replacement.flipY ? -1 : 1;
-          ctx.scale(scaleX, scaleY);
-
-          // Draw emoji image centered at origin
-          ctx.drawImage(
-            emojiImg,
-            -emojiSize.width / 2,
-            -emojiSize.height / 2,
-            emojiSize.width,
-            emojiSize.height
-          );
-
-          ctx.restore();
-          ctx.globalAlpha = previousAlpha;
-          resolve();
-        };
-        emojiImg.onerror = () => resolve();
-        emojiImg.src = replacement.emojiUrl;
-      });
+      drawEmojiReplacement(ctx, face.box, replacement, emojiImage);
     });
 
     // Export after all emojis are drawn
@@ -758,7 +692,14 @@ export default function Home() {
 
           {/* Image uploader */}
           {!image && (
-            <ImageUploader onImageLoad={handleImageLoad} disabled={isProcessing} />
+            <ImageUploader
+              onImageLoad={handleImageLoad}
+              onError={(message) => {
+                setToastMessage(message);
+                setIsToastVisible(true);
+              }}
+              disabled={isProcessing}
+            />
           )}
 
           {/* Canvas preview */}
