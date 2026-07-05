@@ -10,8 +10,9 @@
 > ✅ Phase 3 完成（3.7 页面瘦身按"可选"跳过）— 3.1 依赖清理、3.2/3.3 死代码与类型清理、3.4 绘制逻辑统一、3.5 共用检测流程、3.6 合并重复 JSX、3.8 上传错误走 Toast。
 > ✅ Phase 4 完成 — README/CLAUDE.md/ROADMAP 与代码对齐，版本统一 0.2.0。
 > ✅ Phase 5 完成 — vitest 单测（14 例，含 ZWJ 回归）、GitHub Actions CI（lint/typecheck/test/build）、CSP 与安全响应头（已在预览中验证无违规）。
-> ⬜ 待做 — 仅剩 Phase 6 功能项（PWA、拖拽重定位、撤销重做扩展为完整历史栈、中文搜索恢复、实时相机）与 3.7 可选瘦身。
-> 已通过蒙娜丽莎图端到端验证（含 CSP 开启后回归）：上传 → 检测 → 引导 → 替换（Twemoji 新 CDN）→ 重置 → 撤销恢复。
+> ✅ Phase 6 启动 — PWA 离线支持已完成：`public/sw.js`（app shell + 全部模型 + 已用 Twemoji 缓存优先，导航网络优先带缓存回退）、`components/ServiceWorkerRegistration.tsx`（仅生产环境注册；开发环境主动注销遗留 SW，避免 `_next/static` 热更新期间被旧缓存劫持）、`site.webmanifest` 补全中文名称/主题色/maskable 图标。已在生产构建的预览中验证：SW 激活、缓存命中全部模型与页面资源、彻底关闭服务器进程后浏览器仍可继续访问缓存内容。
+> ⬜ 待做 — Phase 6 其余功能项（拖拽重定位、撤销重做扩展为完整历史栈、中文搜索恢复、实时相机）与 3.7 可选瘦身。
+> 已通过蒙娜丽莎图端到端验证（含 CSP 开启后回归、PWA 离线回归）：上传 → 检测 → 引导 → 替换（Twemoji 新 CDN）→ 重置 → 撤销恢复。
 
 ---
 
