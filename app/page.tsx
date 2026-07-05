@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { motion, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
@@ -65,6 +65,23 @@ export default function Home() {
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string>('');
   const [isToastVisible, setIsToastVisible] = useState(false);
+  const [toastAction, setToastAction] = useState<{ label: string; handler: () => void } | null>(
+    null
+  );
+
+  const showToast = useCallback(
+    (message: string, action?: { label: string; handler: () => void }) => {
+      setToastMessage(message);
+      setToastAction(action ?? null);
+      setIsToastVisible(true);
+    },
+    []
+  );
+
+  // Snapshot for undoing destructive actions (reset / re-detect)
+  const undoSnapshotRef = useRef<{ faces: DetectedFace[]; replacements: EmojiReplacement[] } | null>(
+    null
+  );
 
   // Settings (now mutable)
   const [detectionSettings, setDetectionSettings] = useState<DetectionSettings>({
@@ -133,8 +150,7 @@ export default function Home() {
     applyReplacementPatch,
     setEmojiSettings,
     setReplacements,
-    setToastMessage,
-    setIsToastVisible,
+    showToast,
     setActiveReplacementId,
   });
 
@@ -225,23 +241,20 @@ export default function Home() {
       // Check if model is loaded
       if (detector === 'tiny_face_detector' && !isModelLoaded('tinyFaceDetector')) {
         // Show toast notification
-        setToastMessage('⏳ 正在加载极速模式');
-        setIsToastVisible(true);
+        showToast('⏳ 正在加载极速模式');
 
         try {
           await loadTinyModel(false); // Load with progress
-          setToastMessage('✅ 极速模式就绪');
-          setIsToastVisible(true);
+          showToast('✅ 极速模式就绪');
         } catch (error) {
           console.error('检测器加载失败:', error);
-          setToastMessage('❌ 极速模式加载失败，请检查网络后重试');
-          setIsToastVisible(true);
+          showToast('❌ 极速模式加载失败，请检查网络后重试');
         }
       }
     };
 
     handleDetectorChange();
-  }, [detectionSettings.detector]);
+  }, [detectionSettings.detector, showToast]);
 
   // Auto-apply emoji settings when they change
   // Only update styles (scale, opacity, flip). Never touch emojiUrl here:
@@ -277,6 +290,8 @@ export default function Home() {
       setActiveReplacementId(null);
       setError(null);
       setIsProcessing(true);
+      // A pending undo snapshot belongs to the previous image
+      undoSnapshotRef.current = null;
 
       try {
         // Determine processing message based on file size
@@ -325,8 +340,7 @@ export default function Home() {
         } else {
           // Performance warning for too many faces
           if (detectionResult.faceCount > 50) {
-            setToastMessage(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
-            setIsToastVisible(true);
+            showToast(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
           }
           setFaces(detectionResult.faces);
         }
@@ -338,7 +352,7 @@ export default function Home() {
         setProcessingMessage('');
       }
     },
-    [detectionSettings]
+    [detectionSettings, showToast]
   );
 
   // Handle emoji selection
@@ -355,8 +369,7 @@ export default function Home() {
     async (faceId: string) => {
       if (!selectedEmoji) {
         // Guide the user to pick an emoji first instead of failing silently
-        setToastMessage('👇 先选一个表情，再点人脸');
-        setIsToastVisible(true);
+        showToast('👇 先选一个表情，再点人脸');
         setIsEmojiPickerOpen(true);
         return;
       }
@@ -404,7 +417,7 @@ export default function Home() {
         // Fallback will handle it gracefully
       }
     },
-    [selectedEmoji, faces, emojiSettings]
+    [selectedEmoji, faces, emojiSettings, showToast]
   );
 
   // Apply to all faces: preload the emoji once, then build all replacements
@@ -438,17 +451,32 @@ export default function Home() {
     });
   }, [selectedEmoji, faces, emojiSettings]);
 
-  // Reset all replacements
+  // Restore the snapshot taken before a destructive action
+  const handleUndoRestore = useCallback(() => {
+    const snapshot = undoSnapshotRef.current;
+    if (!snapshot) return;
+
+    undoSnapshotRef.current = null;
+    setFaces(snapshot.faces);
+    setReplacements(snapshot.replacements);
+    setError(null);
+    showToast('↩️ 已恢复之前的替换');
+  }, [showToast]);
+
+  // Reset all replacements (undoable via toast)
   const handleReset = useCallback(() => {
+    if (replacements.length === 0) return;
+
+    undoSnapshotRef.current = { faces, replacements };
     setReplacements([]);
     setActiveReplacementId(null);
-  }, []);
+    showToast('♻️ 已清空全部替换', { label: '撤销', handler: handleUndoRestore });
+  }, [faces, replacements, showToast, handleUndoRestore]);
 
   const handleInspectFace = useCallback((faceId: string) => {
     const target = replacements.find((replacement) => replacement.faceId === faceId);
     if (!target) {
-      setToastMessage('😶 先替换表情再微调吧');
-      setIsToastVisible(true);
+      showToast('😶 先替换表情再微调吧');
       return;
     }
 
@@ -461,11 +489,16 @@ export default function Home() {
         badge?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     }
-  }, [replacements]);
+  }, [replacements, showToast]);
 
-  // Re-detect faces with new settings
+  // Re-detect faces with new settings (clears replacements, undoable via toast)
   const handleRedetect = useCallback(async () => {
     if (!image) return;
+
+    const hadReplacements = replacements.length > 0;
+    if (hadReplacements) {
+      undoSnapshotRef.current = { faces, replacements };
+    }
 
     setFaces([]);
     setReplacements([]);
@@ -495,8 +528,7 @@ export default function Home() {
       } else {
         // Performance warning for too many faces
         if (detectionResult.faceCount > 50) {
-          setToastMessage(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
-          setIsToastVisible(true);
+          showToast(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
         }
         setFaces(detectionResult.faces);
       }
@@ -506,8 +538,15 @@ export default function Home() {
     } finally {
       setIsProcessing(false);
       setProcessingMessage('');
+
+      if (hadReplacements) {
+        showToast('🔄 已重新检测，之前的替换被清空', {
+          label: '撤销',
+          handler: handleUndoRestore,
+        });
+      }
     }
-  }, [image, optimizedImage, detectionSettings]);
+  }, [image, optimizedImage, detectionSettings, faces, replacements, showToast, handleUndoRestore]);
 
 
   // Export image
@@ -568,11 +607,10 @@ export default function Home() {
         a.click();
         URL.revokeObjectURL(url);
 
-        setToastMessage('✅ 图片已保存到下载');
-        setIsToastVisible(true);
+        showToast('✅ 图片已保存到下载');
       }, 'image/png');
     });
-  }, [image, faces, replacements]);
+  }, [image, faces, replacements, showToast]);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -595,10 +633,12 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Toast Notification */}
-      <Toast 
+      <Toast
         message={toastMessage}
         isVisible={isToastVisible}
         onClose={() => setIsToastVisible(false)}
+        actionLabel={toastAction?.label}
+        onAction={toastAction?.handler}
       />
 
       <div
@@ -694,10 +734,7 @@ export default function Home() {
           {!image && (
             <ImageUploader
               onImageLoad={handleImageLoad}
-              onError={(message) => {
-                setToastMessage(message);
-                setIsToastVisible(true);
-              }}
+              onError={showToast}
               disabled={isProcessing}
             />
           )}
@@ -787,6 +824,7 @@ export default function Home() {
                     setActiveReplacementId(null);
                     setIsEmojiPickerOpen(false);
                     setError(null);
+                    undoSnapshotRef.current = null;
                   }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

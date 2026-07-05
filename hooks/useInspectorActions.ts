@@ -11,8 +11,7 @@ interface UseInspectorActionsParams {
   ) => void;
   setEmojiSettings: (next: EmojiSettings) => void;
   setReplacements: Dispatch<SetStateAction<EmojiReplacement[]>>;
-  setToastMessage: (message: string) => void;
-  setIsToastVisible: (visible: boolean) => void;
+  showToast: (message: string) => void;
   setActiveReplacementId: (faceId: string | null) => void;
 }
 
@@ -22,8 +21,7 @@ export function useInspectorActions({
   applyReplacementPatch,
   setEmojiSettings,
   setReplacements,
-  setToastMessage,
-  setIsToastVisible,
+  showToast,
   setActiveReplacementId,
 }: UseInspectorActionsParams) {
   const handleUpdate = useCallback(
@@ -48,9 +46,8 @@ export function useInspectorActions({
       { customState: false }
     );
 
-    setToastMessage('🌟 样式回到默认啦');
-    setIsToastVisible(true);
-  }, [activeReplacement, emojiSettings, applyReplacementPatch, setToastMessage, setIsToastVisible]);
+    showToast('🌟 样式回到默认啦');
+  }, [activeReplacement, emojiSettings, applyReplacementPatch, showToast]);
 
   const handleAdoptAsDefault = useCallback(() => {
     if (!activeReplacement) return;
@@ -76,15 +73,13 @@ export function useInspectorActions({
       { customState: false }
     );
 
-    setToastMessage('✅ 默认样式已更新');
-    setIsToastVisible(true);
+    showToast('✅ 默认样式已更新');
   }, [
     activeReplacement,
     emojiSettings,
     setEmojiSettings,
     applyReplacementPatch,
-    setToastMessage,
-    setIsToastVisible,
+    showToast,
   ]);
 
   const handleApplyToAll = useCallback(() => {
@@ -106,9 +101,8 @@ export function useInspectorActions({
       }))
     );
 
-    setToastMessage('🚀 全部表情同步完成');
-    setIsToastVisible(true);
-  }, [activeReplacement, emojiSettings, setReplacements, setToastMessage, setIsToastVisible]);
+    showToast('🚀 全部表情同步完成');
+  }, [activeReplacement, emojiSettings, setReplacements, showToast]);
 
   const handleClose = useCallback(() => {
     setActiveReplacementId(null);

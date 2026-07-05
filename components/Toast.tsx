@@ -8,17 +8,29 @@ interface ToastProps {
   isVisible: boolean;
   onClose: () => void;
   duration?: number;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
-export default function Toast({ message, isVisible, onClose, duration = 2000 }: ToastProps) {
+export default function Toast({
+  message,
+  isVisible,
+  onClose,
+  duration = 2000,
+  actionLabel,
+  onAction,
+}: ToastProps) {
+  // Toasts with an action stay longer so the user has time to react
+  const effectiveDuration = actionLabel && onAction ? Math.max(duration, 5000) : duration;
+
   useEffect(() => {
-    if (isVisible && duration > 0) {
+    if (isVisible && effectiveDuration > 0) {
       const timer = setTimeout(() => {
         onClose();
-      }, duration);
+      }, effectiveDuration);
       return () => clearTimeout(timer);
     }
-  }, [isVisible, duration, onClose]);
+  }, [isVisible, effectiveDuration, onClose]);
 
   return (
     <AnimatePresence>
@@ -32,13 +44,24 @@ export default function Toast({ message, isVisible, onClose, duration = 2000 }: 
           <div
             role="status"
             aria-live="polite"
-            className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center justify-center min-w-[200px] backdrop-blur-sm"
+            className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center justify-center gap-4 min-w-[200px] backdrop-blur-sm"
           >
             <span className="font-bold text-sm">{message}</span>
+            {actionLabel && onAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  onAction();
+                  onClose();
+                }}
+                className="shrink-0 font-bold text-sm text-blue-300 hover:text-blue-200 underline underline-offset-2 transition-colors"
+              >
+                {actionLabel}
+              </button>
+            )}
           </div>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
-
