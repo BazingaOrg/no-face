@@ -3,9 +3,9 @@
 > 2026-07-05 · 与 [optimization-plan.md](./optimization-plan.md) 配套的界面与文案专项评审。
 > 优先级：⭐⭐⭐ = 投入小、感知强，建议最先做；⭐⭐ = 值得排期；⭐ = 有余力再做。
 >
-> **实施状态（2026-07-05，commits d29ed25…393995b）**：
-> ✅ 已完成 — 1.1 字体、1.2 暗色标题、1.5 reduced-motion（MotionConfig + CSS）、2.1 点脸引导、2.3 的 % 单位部分（灵敏度/透明度改整数百分比显示）、2.4 导出成功提示、2.5 的 Toast 图标/aria-live/role=alert、3.2 文案对照表全部、3.3 副标题与徽章流式布局（含 1.3）、3.4 lang/metadata。
-> ⬜ 待做 — 1.4 按钮三级体系、1.5 的 ProcessingOverlay 动画精简、2.2 破坏性操作确认、2.3 灵敏度标度反转/三档化、2.4 示例图（需准备素材）、2.5 其余项（全窗口拖拽、Inspector padding、badge 密集态）。
+> **实施状态（2026-07-05，commits d29ed25…91dfbb9）**：
+> ✅ 已完成 — 1.1 字体、1.2 暗色标题、1.4 按钮三级体系（btn-primary/secondary/ghost，绿色只留给下载；随机按钮保留粉色作为刻意的趣味例外）、1.5 reduced-motion（MotionConfig + CSS）、2.1 点脸引导、2.2 破坏性操作改为「撤销」Toast（重置/重新检测均可一键恢复）、2.3 的 % 单位部分（灵敏度/透明度改整数百分比显示）、2.4 导出成功提示、2.5 的 Toast 图标/aria-live/role=alert、3.2 文案对照表全部、3.3 副标题与徽章流式布局（含 1.3）、3.4 lang/metadata。
+> ⬜ 待做 — 1.5 的 ProcessingOverlay 动画精简、2.3 灵敏度标度反转/三档化、2.4 示例图（需准备素材）、2.5 其余项（全窗口拖拽、Inspector padding、badge 密集态）。
 
 ---
 
