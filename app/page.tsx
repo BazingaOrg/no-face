@@ -90,7 +90,6 @@ export default function Home() {
   });
 
   const [emojiSettings, setEmojiSettings] = useState<EmojiSettings>({
-    size: '72x72',
     scale: 1.2,
     opacity: 1.0,
     flipX: false,
@@ -281,6 +280,35 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emojiSettings]);
 
+  // Shared detection tail: run detection and surface the result
+  // (used by both the initial upload flow and re-detection)
+  const detectAndSetFaces = useCallback(
+    async (input: HTMLImageElement | HTMLCanvasElement, scale: number) => {
+      // Small delay so the processing overlay can paint first
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const detectionResult = await runFaceDetection({
+        input,
+        settings: detectionSettings,
+        scale,
+      });
+
+      setHasLandmarks(detectionResult.hasLandmarks);
+
+      if (detectionResult.isEmpty) {
+        setError('🙈 没找到人脸，试试降低灵敏度');
+        return;
+      }
+
+      // Performance warning for too many faces
+      if (detectionResult.faceCount > 50) {
+        showToast(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
+      }
+      setFaces(detectionResult.faces);
+    },
+    [detectionSettings, showToast]
+  );
+
   // Handle image upload
   const handleImageLoad = useCallback(
     async (img: HTMLImageElement, fileSize?: number) => {
@@ -323,27 +351,7 @@ export default function Home() {
         }
 
         setProcessingMessage('🔍 正在找脸');
-        
-        // Add small delay to let UI update
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        const detectionResult = await runFaceDetection({
-          input: imageToDetect,
-          settings: detectionSettings,
-          scale,
-        });
-
-        setHasLandmarks(detectionResult.hasLandmarks);
-
-        if (detectionResult.isEmpty) {
-          setError('🙈 没找到人脸，试试降低灵敏度');
-        } else {
-          // Performance warning for too many faces
-          if (detectionResult.faceCount > 50) {
-            showToast(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
-          }
-          setFaces(detectionResult.faces);
-        }
+        await detectAndSetFaces(imageToDetect, scale);
       } catch (error) {
         console.error('人脸检测失败:', error);
         setError('😵 检测出错了，点「重新检测」再试一次');
@@ -352,7 +360,7 @@ export default function Home() {
         setProcessingMessage('');
       }
     },
-    [detectionSettings, showToast]
+    [detectAndSetFaces]
   );
 
   // Handle emoji selection
@@ -512,26 +520,7 @@ export default function Home() {
       const imageToDetect = optimizedImage?.optimizedCanvas || image;
       const scale = optimizedImage?.scale || 1;
 
-      // Add small delay to let UI update
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      const detectionResult = await runFaceDetection({
-        input: imageToDetect,
-        settings: detectionSettings,
-        scale,
-      });
-
-      setHasLandmarks(detectionResult.hasLandmarks);
-
-      if (detectionResult.isEmpty) {
-        setError('🙈 没找到人脸，试试降低灵敏度');
-      } else {
-        // Performance warning for too many faces
-        if (detectionResult.faceCount > 50) {
-          showToast(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
-        }
-        setFaces(detectionResult.faces);
-      }
+      await detectAndSetFaces(imageToDetect, scale);
     } catch (error) {
       console.error('重新检测失败:', error);
       setError('😵 检测出错了，点「重新检测」再试一次');
@@ -546,7 +535,7 @@ export default function Home() {
         });
       }
     }
-  }, [image, optimizedImage, detectionSettings, faces, replacements, showToast, handleUndoRestore]);
+  }, [image, optimizedImage, faces, replacements, detectAndSetFaces, showToast, handleUndoRestore]);
 
 
   // Export image
@@ -696,29 +685,12 @@ export default function Home() {
 
         {/* Main content */}
         <div className="space-y-4">
-          {/* Settings Panel - Show before image upload */}
-          {!image && !isProcessing && (
+          {/* Settings Panel - before upload, and again once faces are detected */}
+          {(!image || faces.length > 0) && !isProcessing && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-            >
-              <SettingsPanel
-                detectionSettings={detectionSettings}
-                onEmojiChange={setEmojiSettings}
-                onDetectionChange={setDetectionSettings}
-                isOpen={isSettingsPanelOpen}
-                onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
-              />
-            </motion.div>
-          )}
-
-          {/* Settings Panel - Show after image upload when faces detected */}
-          {image && faces.length > 0 && !isProcessing && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
             >
               <SettingsPanel
                 detectionSettings={detectionSettings}

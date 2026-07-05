@@ -1,13 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-
-export interface ModelLoadingState {
-  isLoading: boolean;
-  progress: number;
-  currentModel: string;
-  loadedModels: string[];
-}
+import { ModelLoadingState } from '@/types';
 
 interface ModelLoadingModalProps {
   state: ModelLoadingState;

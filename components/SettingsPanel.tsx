@@ -223,7 +223,6 @@ export default function SettingsPanel({
                   minConfidence: 0.5,
                 });
                 onEmojiChange({
-                  size: '72x72',
                   scale: 1.2,
                   opacity: 1.0,
                   flipX: false,

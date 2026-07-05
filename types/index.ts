@@ -32,14 +32,12 @@ export interface EmojiReplacement {
   opacity?: number;
   flipX?: boolean;
   flipY?: boolean;
-  offsetX?: number;
-  offsetY?: number;
   isCustom?: boolean;
 }
 
 // Face detection settings
 export interface DetectionSettings {
-  detector: 'ssd_mobilenetv1' | 'tiny_face_detector' | 'mtcnn';
+  detector: 'ssd_mobilenetv1' | 'tiny_face_detector';
   minConfidence: number; // 0-1
   inputSize?: number; // for tiny_face_detector
   scoreThreshold?: number; // for tiny_face_detector
@@ -47,32 +45,10 @@ export interface DetectionSettings {
 
 // Emoji settings
 export interface EmojiSettings {
-  size: '36x36' | '72x72';
   scale: number; // 0.5-2.0, relative to face size
   opacity: number; // 0.5-1.0, emoji transparency
   flipX: boolean; // horizontal flip
   flipY: boolean; // vertical flip
-}
-
-// Application state
-export interface AppState {
-  image: HTMLImageElement | null;
-  detectedFaces: DetectedFace[];
-  replacements: EmojiReplacement[];
-  selectedEmoji: string | null;
-  settings: {
-    detection: DetectionSettings;
-    emoji: EmojiSettings;
-  };
-  isProcessing: boolean;
-  error: string | null;
-}
-
-// Canvas dimensions
-export interface CanvasDimensions {
-  width: number;
-  height: number;
-  scale: number; // display scale vs original
 }
 
 // Model loading progress callback

@@ -42,8 +42,6 @@ const loadedModels = {
   faceLandmark68Net: false,
 };
 
-// Legacy flags for backwards compatibility
-let isModelsLoaded = false;
 let areLandmarksLoaded = false;
 
 /**
@@ -140,8 +138,6 @@ export async function loadSSDModel(): Promise<void> {
     100,
     loadSpecificModel('ssdMobilenetv1')
   );
-
-  isModelsLoaded = true; // Mark as loaded for legacy compatibility
 }
 
 /**
@@ -203,124 +199,6 @@ export async function loadLandmarksModel(silent = false): Promise<void> {
  */
 export function isModelLoaded(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector' | 'faceLandmark68Net'): boolean {
   return loadedModels[modelName];
-}
-
-/**
- * Load face detection models with progress tracking (legacy - loads all models)
- * @deprecated Use loadSSDModel, loadTinyModel, loadLandmarksModel instead for progressive loading
- */
-export async function loadModels(): Promise<void> {
-  if (isModelsLoaded) return;
-
-  // Ensure face-api is loaded
-  await getFaceApi();
-
-  try {
-    // Load SSD MobileNet V1 (primary detector) - 0% to 33%
-    await simulateProgressiveLoading(
-      'ssdMobilenetv1',
-      0,
-      33,
-      loadSpecificModel('ssdMobilenetv1')
-    );
-
-    // Load Tiny Face Detector - 33% to 67%
-    await simulateProgressiveLoading(
-      'tinyFaceDetector',
-      33,
-      67,
-      loadSpecificModel('tinyFaceDetector')
-    );
-
-    isModelsLoaded = true;
-
-    // Try to load landmarks model (optional, for advanced features) - 67% to 100%
-    try {
-      await simulateProgressiveLoading(
-        'faceLandmark68Net',
-        67,
-        100,
-        loadSpecificModel('faceLandmark68Net')
-      );
-      console.log('✅ Face Landmarks 68 模型加载成功');
-    } catch {
-      console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
-      // Still report 100% to close the loading modal
-      if (progressCallback) {
-        progressCallback({
-          model: 'faceLandmark68Net',
-          loaded: 3,
-          total: 3,
-          percentage: 100,
-        });
-      }
-    }
-  } catch (error) {
-    console.error('模型加载失败:', error);
-    throw new Error('Failed to load face detection models');
-  }
-}
-
-/**
- * Detect faces in an image
- */
-export async function detectFaces(
-  input: HTMLImageElement | HTMLCanvasElement,
-  settings: DetectionSettings
-): Promise<DetectedFace[]> {
-  const api = await getFaceApi();
-
-  try {
-    let detections;
-
-    // Select detector based on settings and ensure model is loaded
-    if (settings.detector === 'tiny_face_detector') {
-      // Ensure Tiny Face Detector is loaded
-      if (!loadedModels.tinyFaceDetector) {
-        await loadTinyModel(true); // Silent load
-      }
-
-      const options = new api.TinyFaceDetectorOptions({
-        inputSize: settings.inputSize || 416,
-        scoreThreshold: settings.scoreThreshold || 0.5,
-      });
-      detections = await api.detectAllFaces(input, options);
-    } else {
-      // Default: SSD MobileNet V1
-      if (!loadedModels.ssdMobilenetv1) {
-        await loadSSDModel();
-      }
-
-      const options = new api.SsdMobilenetv1Options({
-        minConfidence: settings.minConfidence || 0.5,
-      });
-      detections = await api.detectAllFaces(input, options);
-    }
-
-    // Convert to our DetectedFace format
-    return detections.map((detection, index) => ({
-      id: `face-${Date.now()}-${index}`,
-      box: {
-        x: detection.box.x,
-        y: detection.box.y,
-        width: detection.box.width,
-        height: detection.box.height,
-      },
-      detection: {
-        score: detection.score,
-        classScore: detection.classScore,
-      },
-    }));
-  } catch {
-    throw new Error('Face detection failed');
-  }
-}
-
-/**
- * Check if models are loaded
- */
-export function areModelsLoaded(): boolean {
-  return isModelsLoaded;
 }
 
 /**
