@@ -108,9 +108,15 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
   - [x] Click to apply emoji to specific face - 点击应用表情到特定人脸
   - [x] Flip emoji (horizontal/vertical) - 表情符号翻转
   - [x] Bottom sheet inspector with fine-tuning & drag-to-close - 底部抽屉微调与拖拽关闭
-  - [ ] **Drag to reposition emoji per face** - 拖拽重新定位（推荐先实现）
-    - **Priority**: 高 - 用户最需要的交互功能
-    - **Implementation**: Canvas drag events + position updates
+  - [x] **Drag to reposition emoji per face** - 拖拽重新定位 ✅ 2026-07-05
+    - **Implementation**: Pointer events on canvas, scoped to the currently
+      inspected face only; drag threshold (4px) distinguishes a tap
+      (still applies the selected emoji) from a drag (repositions).
+      Offset stored in original-image px on `EmojiReplacement.offsetX/Y`,
+      shared `getEmojiScreenRect`/`drawEmojiReplacement` keep preview and
+      export pixel-identical. "恢复默认值" re-centers the position.
+    - **Files**: `components/FaceCanvas.tsx`, `lib/emojiRenderUtils.ts`,
+      `hooks/useInspectorActions.ts`, `types/index.ts`
   - [ ] **Pinch/scroll to scale emoji per face** - 捏合/滚动缩放
     - **Priority**: 中 - 每个表情独立缩放
     - **Implementation**: Touch events + wheel events
@@ -306,8 +312,8 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 
 ### 📈 Phase 2 功能增强 (Month 2 - 功能迭代)
 - **Month 2 Early**: 个别人脸编辑基础功能
-  - 🥇 **拖拽重新定位表情符号** (推荐先实现 - 用户最需要)
-  - 🥈 **撤销重做功能** (用户体验重要增强)
+  - ✅ **拖拽重新定位表情符号** - 已完成 (2026-07-05)
+  - 🥈 **撤销重做功能** (用户体验重要增强；重置/重新检测已支持一次性撤销，完整历史栈待实现)
 - **Month 2 Mid**: 交互增强
   - 🥉 **捏合/滚动缩放** (每个表情独立缩放)
   - 🤔 **表情符号旋转重设计** (解决之前的UX问题)

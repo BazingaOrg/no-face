@@ -130,12 +130,13 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
 **MVP Completed** ✅
 - Image upload, face detection, emoji replacement
 - Advanced settings panel & per-face inspector
+- Drag to reposition an emoji on the inspected face
 - Mobile responsive design
 - Undoable reset / re-detect
+- PWA offline support
 
 **Planned Features**
-- Drag to reposition emojis per face
-- Undo/Redo functionality
+- Full Undo/Redo history (currently: undo one step after reset/re-detect)
 - Real-time camera mode (in design)
   - Live face tracking via `@vladmandic/face-api` on `HTMLVideoElement`
   - Streamlined UI entry alongside the existing uploader with a dedicated state machine
@@ -301,14 +302,14 @@ no-face/
 **MVP 已完成** ✅
 - 图片上传、人脸检测、Emoji 替换
 - 高级设置面板与单脸微调抽屉
+- 拖动调整微调中人脸的 Emoji 位置
 - 移动端响应式设计
 - 重置/重新检测可撤销
+- PWA 离线支持
 
 **计划功能**
-- 拖动调整单个 Emoji 位置
-- 撤销/重做功能
+- 完整撤销/重做历史栈（目前仅支持重置/重新检测后撤销一步）
 - 实时相机模式
-- PWA 支持
 
 ### 🐛 已知问题
 

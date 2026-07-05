@@ -44,7 +44,7 @@ See `MODELS_SETUP.md` for detailed instructions.
 1. **Image Upload** (`components/ImageUploader.tsx`) - Drag & drop, click, or mobile camera (object URL based)
 2. **Face Detection** (`lib/runFaceDetection.ts` → `lib/faceApi.ts`) - @vladmandic/face-api with SSD MobileNet V1 or Tiny Face Detector; large images are downscaled first via `utils/imageOptimization.ts`
 3. **Emoji Selection** (`components/EmojiSelector.tsx`) - emoji-picker-react with search, plus a random button
-4. **Canvas Display** (`components/FaceCanvas.tsx`) - Interactive preview with click-to-replace, per-face badges, devicePixelRatio rendering
+4. **Canvas Display** (`components/FaceCanvas.tsx`) - Interactive preview with click-to-replace, per-face badges, devicePixelRatio rendering, drag-to-reposition on the inspected face
 5. **Per-face Tuning** (`components/EmojiInspector.tsx`) - Bottom sheet for scale/opacity/flip on a single face
 6. **Export** (`app/page.tsx:handleExport`) - Original quality PNG drawn with the same routine as the preview (`drawEmojiReplacement`)
 
@@ -90,7 +90,7 @@ All state is managed in `app/page.tsx` using React `useState`:
 Core types defined in `types/index.ts`:
 
 - `DetectedFace`: Face detection results (id, box coordinates, confidence scores)
-- `EmojiReplacement`: Emoji-to-face mapping (faceId, emoji character, URL, position, transforms)
+- `EmojiReplacement`: Emoji-to-face mapping (faceId, emoji character, URL, scale/opacity/flip, and `offsetX/offsetY` — a user-dragged position offset in original-image pixels, applied on top of the auto-centered position)
 - `DetectionSettings`: Face detection configuration
 - `EmojiSettings`: Emoji rendering configuration
 
@@ -147,6 +147,10 @@ Export happens at **original image resolution** (not display resolution) to main
 ### Settings Behavior
 
 Settings changes trigger **automatic re-application** of styles (scale, opacity, flip) to existing non-custom replacements (the `emojiSettings` effect in `app/page.tsx`). Replacements customised via the inspector (`isCustom`) are left untouched, and `emojiUrl` is never rewritten (an empty URL means native-glyph fallback and must stay that way).
+
+### Drag to Reposition
+
+Dragging is scoped to whichever face is currently open in the inspector (`activeReplacementId`) — `FaceCanvas` hit-tests pointer-down against that face's emoji rect (`getEmojiScreenRect`) and only starts a drag there, so other faces keep their plain click-to-replace behavior. A 4px movement threshold distinguishes a drag from a tap: below it, pointerup falls through to the normal click handler (still replaces the emoji); above it, the click that follows is suppressed (`justDraggedRef`) so a drag doesn't also re-apply the emoji. Position updates go through `useFrameDebouncedCallback` (one update per animation frame) via `onRepositionActiveEmoji` — wired directly to the inspector's `handleInspectorUpdate`, so dragging and the inspector's own patches share one code path and both mark `isCustom: true`. "恢复默认值" resets `offsetX`/`offsetY` to 0 along with scale/opacity/flip.
 
 ### Advanced Settings Panel
 
