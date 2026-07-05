@@ -13,6 +13,10 @@ interface UseInspectorActionsParams {
   setReplacements: Dispatch<SetStateAction<EmojiReplacement[]>>;
   showToast: (message: string) => void;
   setActiveReplacementId: (faceId: string | null) => void;
+  // Call before mutating replacements so the change becomes undoable.
+  // Not called from handleUpdate itself — that fires many times per drag/slider
+  // gesture, and callers signal the start of each gesture separately.
+  pushHistory: () => void;
 }
 
 export function useInspectorActions({
@@ -23,6 +27,7 @@ export function useInspectorActions({
   setReplacements,
   showToast,
   setActiveReplacementId,
+  pushHistory,
 }: UseInspectorActionsParams) {
   const handleUpdate = useCallback(
     (patch: Partial<EmojiReplacement>) => {
@@ -35,6 +40,7 @@ export function useInspectorActions({
   const handleResetToDefault = useCallback(() => {
     if (!activeReplacement) return;
 
+    pushHistory();
     applyReplacementPatch(
       activeReplacement.faceId,
       {
@@ -50,7 +56,7 @@ export function useInspectorActions({
     );
 
     showToast('🌟 样式回到默认啦');
-  }, [activeReplacement, emojiSettings, applyReplacementPatch, showToast]);
+  }, [activeReplacement, emojiSettings, applyReplacementPatch, pushHistory, showToast]);
 
   const handleAdoptAsDefault = useCallback(() => {
     if (!activeReplacement) return;
@@ -65,6 +71,7 @@ export function useInspectorActions({
 
     setEmojiSettings(nextDefaults);
 
+    pushHistory();
     applyReplacementPatch(
       activeReplacement.faceId,
       {
@@ -82,6 +89,7 @@ export function useInspectorActions({
     emojiSettings,
     setEmojiSettings,
     applyReplacementPatch,
+    pushHistory,
     showToast,
   ]);
 
@@ -93,6 +101,7 @@ export function useInspectorActions({
     const nextFlipX = activeReplacement.flipX ?? emojiSettings.flipX;
     const nextFlipY = activeReplacement.flipY ?? emojiSettings.flipY;
 
+    pushHistory();
     setReplacements((prev) =>
       prev.map((replacement) => ({
         ...replacement,
@@ -105,7 +114,7 @@ export function useInspectorActions({
     );
 
     showToast('🚀 全部表情同步完成');
-  }, [activeReplacement, emojiSettings, setReplacements, showToast]);
+  }, [activeReplacement, emojiSettings, setReplacements, pushHistory, showToast]);
 
   const handleClose = useCallback(() => {
     setActiveReplacementId(null);

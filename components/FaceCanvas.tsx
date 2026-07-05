@@ -23,6 +23,9 @@ interface FaceCanvasProps {
   // Called while the active (inspected) face's emoji is being dragged on
   // the canvas; only that face can be repositioned this way.
   onRepositionActiveEmoji?: (patch: Partial<EmojiReplacement>) => void;
+  // Called once, right when a drag first crosses the threshold — lets the
+  // caller snapshot undo history before the first reposition patch lands.
+  onBeginDragReposition?: () => void;
 }
 
 // CSS-pixel movement threshold before a pointer-down on the active emoji
@@ -47,6 +50,7 @@ export default function FaceCanvas({
   onInspectFace,
   activeReplacementId,
   onRepositionActiveEmoji,
+  onBeginDragReposition,
 }: FaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -307,6 +311,7 @@ export default function FaceCanvas({
       if (distance < DRAG_THRESHOLD_PX) return;
       drag.isDragging = true;
       e.currentTarget.style.cursor = 'grabbing';
+      onBeginDragReposition?.();
     }
 
     scheduleReposition({

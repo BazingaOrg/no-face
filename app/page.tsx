@@ -37,6 +37,13 @@ import {
 import { runFaceDetection } from '@/lib/runFaceDetection';
 import { useInspectorActions } from '@/hooks/useInspectorActions';
 
+interface HistorySnapshot {
+  faces: DetectedFace[];
+  replacements: EmojiReplacement[];
+}
+
+const MAX_HISTORY = 50;
+
 export default function Home() {
   // State management
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -78,10 +85,81 @@ export default function Home() {
     []
   );
 
-  // Snapshot for undoing destructive actions (reset / re-detect)
-  const undoSnapshotRef = useRef<{ faces: DetectedFace[]; replacements: EmojiReplacement[] } | null>(
-    null
-  );
+  // Undo/redo history: a stack of { faces, replacements } snapshots.
+  // Callers must call pushHistory() BEFORE mutating faces/replacements —
+  // it captures the current (pre-change) values from this render's closure.
+  const pastRef = useRef<HistorySnapshot[]>([]);
+  const futureRef = useRef<HistorySnapshot[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const refreshHistoryFlags = useCallback(() => {
+    setCanUndo(pastRef.current.length > 0);
+    setCanRedo(futureRef.current.length > 0);
+  }, []);
+
+  const pushHistory = useCallback(() => {
+    pastRef.current.push({ faces, replacements });
+    if (pastRef.current.length > MAX_HISTORY) pastRef.current.shift();
+    futureRef.current = [];
+    refreshHistoryFlags();
+  }, [faces, replacements, refreshHistoryFlags]);
+
+  // A fresh image invalidates any history from the previous one
+  const clearHistory = useCallback(() => {
+    pastRef.current = [];
+    futureRef.current = [];
+    refreshHistoryFlags();
+  }, [refreshHistoryFlags]);
+
+  const handleUndo = useCallback(() => {
+    if (isProcessing) return;
+    const previous = pastRef.current.pop();
+    if (!previous) return;
+
+    futureRef.current.push({ faces, replacements });
+    setFaces(previous.faces);
+    setReplacements(previous.replacements);
+    setError(null);
+    refreshHistoryFlags();
+  }, [isProcessing, faces, replacements, refreshHistoryFlags]);
+
+  const handleRedo = useCallback(() => {
+    if (isProcessing) return;
+    const next = futureRef.current.pop();
+    if (!next) return;
+
+    pastRef.current.push({ faces, replacements });
+    setFaces(next.faces);
+    setReplacements(next.replacements);
+    setError(null);
+    refreshHistoryFlags();
+  }, [isProcessing, faces, replacements, refreshHistoryFlags]);
+
+  // Keyboard shortcuts: Ctrl/Cmd+Z to undo, Ctrl/Cmd+Shift+Z to redo.
+  // Skipped while an editable field has focus so native text-undo still works.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isUndoRedoKey = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z';
+      if (!isUndoRedoKey) return;
+
+      const target = event.target as HTMLElement | null;
+      const isEditableTarget =
+        !!target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (isEditableTarget) return;
+
+      event.preventDefault();
+      if (event.shiftKey) {
+        handleRedo();
+      } else {
+        handleUndo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Settings (now mutable)
   const [detectionSettings, setDetectionSettings] = useState<DetectionSettings>({
@@ -151,6 +229,7 @@ export default function Home() {
     setReplacements,
     showToast,
     setActiveReplacementId,
+    pushHistory,
   });
 
   const inspectorDragControls = useDragControls();
@@ -318,8 +397,8 @@ export default function Home() {
       setActiveReplacementId(null);
       setError(null);
       setIsProcessing(true);
-      // A pending undo snapshot belongs to the previous image
-      undoSnapshotRef.current = null;
+      // History from the previous image no longer applies
+      clearHistory();
 
       try {
         // Determine processing message based on file size
@@ -360,7 +439,7 @@ export default function Home() {
         setProcessingMessage('');
       }
     },
-    [detectAndSetFaces]
+    [detectAndSetFaces, clearHistory]
   );
 
   // Handle emoji selection
@@ -384,6 +463,10 @@ export default function Home() {
 
       const face = faces.find((f) => f.id === faceId);
       if (!face) return;
+
+      // Snapshot before the async preload, not after — an undo should return
+      // to the state right before this click, regardless of preload timing.
+      pushHistory();
 
       try {
         // Preload emoji with fallback to native rendering
@@ -424,7 +507,7 @@ export default function Home() {
         // Fallback will handle it gracefully
       }
     },
-    [selectedEmoji, faces, emojiSettings, showToast]
+    [selectedEmoji, faces, emojiSettings, showToast, pushHistory]
   );
 
   // Apply to all faces: preload the emoji once, then build all replacements
@@ -432,6 +515,8 @@ export default function Home() {
   // emoji N times sequentially)
   const handleApplyToAll = useCallback(async () => {
     if (!selectedEmoji) return;
+
+    pushHistory();
 
     const result = await preloadEmojiWithFallback(selectedEmoji);
 
@@ -455,29 +540,17 @@ export default function Home() {
         };
       });
     });
-  }, [selectedEmoji, faces, emojiSettings]);
+  }, [selectedEmoji, faces, emojiSettings, pushHistory]);
 
-  // Restore the snapshot taken before a destructive action
-  const handleUndoRestore = useCallback(() => {
-    const snapshot = undoSnapshotRef.current;
-    if (!snapshot) return;
-
-    undoSnapshotRef.current = null;
-    setFaces(snapshot.faces);
-    setReplacements(snapshot.replacements);
-    setError(null);
-    showToast('↩️ 已恢复之前的替换');
-  }, [showToast]);
-
-  // Reset all replacements (undoable via toast)
+  // Reset all replacements (undoable via toast, or Ctrl/Cmd+Z)
   const handleReset = useCallback(() => {
     if (replacements.length === 0) return;
 
-    undoSnapshotRef.current = { faces, replacements };
+    pushHistory();
     setReplacements([]);
     setActiveReplacementId(null);
-    showToast('♻️ 已清空全部替换', { label: '撤销', handler: handleUndoRestore });
-  }, [faces, replacements, showToast, handleUndoRestore]);
+    showToast('♻️ 已清空全部替换', { label: '撤销', handler: handleUndo });
+  }, [replacements, pushHistory, showToast, handleUndo]);
 
   const handleInspectFace = useCallback((faceId: string) => {
     const target = replacements.find((replacement) => replacement.faceId === faceId);
@@ -503,7 +576,7 @@ export default function Home() {
 
     const hadReplacements = replacements.length > 0;
     if (hadReplacements) {
-      undoSnapshotRef.current = { faces, replacements };
+      pushHistory();
     }
 
     setFaces([]);
@@ -529,11 +602,11 @@ export default function Home() {
       if (hadReplacements) {
         showToast('🔄 已重新检测，之前的替换被清空', {
           label: '撤销',
-          handler: handleUndoRestore,
+          handler: handleUndo,
         });
       }
     }
-  }, [image, optimizedImage, faces, replacements, detectAndSetFaces, showToast, handleUndoRestore]);
+  }, [image, optimizedImage, replacements, pushHistory, detectAndSetFaces, showToast, handleUndo]);
 
 
   // Export image
@@ -725,6 +798,7 @@ export default function Home() {
                 onInspectFace={handleInspectFace}
                 activeReplacementId={activeReplacementId}
                 onRepositionActiveEmoji={handleInspectorUpdate}
+                onBeginDragReposition={pushHistory}
               />
             </motion.div>
           )}
@@ -777,7 +851,27 @@ export default function Home() {
               </div>
 
               {/* Secondary action buttons */}
-              <div className="flex gap-2 justify-center mt-3">
+              <div className="flex flex-wrap gap-2 justify-center mt-3">
+                <motion.button
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  whileHover={canUndo ? { scale: 1.02 } : {}}
+                  whileTap={canUndo ? { scale: 0.98 } : {}}
+                  className={`text-sm px-3 py-1.5 btn-duo ${canUndo ? 'btn-ghost' : 'btn-disabled'}`}
+                  title="撤销 (Ctrl/Cmd+Z)"
+                >
+                  ↩️ 撤销
+                </motion.button>
+                <motion.button
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  whileHover={canRedo ? { scale: 1.02 } : {}}
+                  whileTap={canRedo ? { scale: 0.98 } : {}}
+                  className={`text-sm px-3 py-1.5 btn-duo ${canRedo ? 'btn-ghost' : 'btn-disabled'}`}
+                  title="重做 (Ctrl/Cmd+Shift+Z)"
+                >
+                  ↪️ 重做
+                </motion.button>
                 <motion.button
                   onClick={handleRedetect}
                   whileHover={{ scale: 1.02 }}
@@ -796,7 +890,7 @@ export default function Home() {
                     setActiveReplacementId(null);
                     setIsEmojiPickerOpen(false);
                     setError(null);
-                    undoSnapshotRef.current = null;
+                    clearHistory();
                   }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -917,6 +1011,7 @@ export default function Home() {
                   defaultSettings={emojiSettings}
                   label={activeFaceIndex >= 0 ? `第 ${activeFaceIndex + 1} 张脸` : '人脸'}
                   onUpdate={handleInspectorUpdate}
+                  onBeginEdit={pushHistory}
                   onResetToDefault={handleInspectorReset}
                   onAdoptAsDefault={handleInspectorAdopt}
                   onApplyToAll={handleInspectorApplyToAll}

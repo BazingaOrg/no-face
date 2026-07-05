@@ -10,6 +10,10 @@ interface EmojiInspectorProps {
   defaultSettings: EmojiSettings;
   label: string;
   onUpdate: (patch: Partial<EmojiReplacement>) => void;
+  // Called once at the start of a slider drag / number field edit / flip
+  // toggle, so the caller can snapshot undo history before onUpdate fires
+  // (onUpdate itself fires many times per drag and shouldn't push history).
+  onBeginEdit?: () => void;
   onResetToDefault: () => void;
   onAdoptAsDefault: () => void;
   onApplyToAll: () => void;
@@ -27,6 +31,7 @@ export default function EmojiInspector({
   defaultSettings,
   label,
   onUpdate,
+  onBeginEdit,
   onResetToDefault,
   onAdoptAsDefault,
   onApplyToAll,
@@ -129,6 +134,7 @@ export default function EmojiInspector({
                 max={2}
                 step={0.05}
                 value={scaleInput}
+                onFocus={() => onBeginEdit?.()}
                 onChange={(event) => {
                   setScaleInput(event.target.value);
                 }}
@@ -150,6 +156,7 @@ export default function EmojiInspector({
             max="2.0"
             step="0.05"
             value={localScale}
+            onPointerDown={() => onBeginEdit?.()}
             onChange={(event) => handleScaleChange(parseFloat(event.target.value))}
             className={SLIDER_CLASS}
           />
@@ -169,6 +176,7 @@ export default function EmojiInspector({
                 max={100}
                 step={1}
                 value={opacityInput}
+                onFocus={() => onBeginEdit?.()}
                 onChange={(event) => {
                   setOpacityInput(event.target.value);
                 }}
@@ -190,6 +198,7 @@ export default function EmojiInspector({
             max="1"
             step="0.01"
             value={localOpacity}
+            onPointerDown={() => onBeginEdit?.()}
             onChange={(event) => handleOpacityChange(parseFloat(event.target.value))}
             className={SLIDER_CLASS}
           />
@@ -206,7 +215,10 @@ export default function EmojiInspector({
               type="button"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onUpdate({ flipX: !flipX })}
+              onClick={() => {
+                onBeginEdit?.();
+                onUpdate({ flipX: !flipX });
+              }}
               className={`py-3 px-4 rounded-2xl font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 flipX
                   ? 'bg-gradient-to-r from-teal-400 to-teal-500 text-white shadow-md border-b-4 border-teal-600'
@@ -219,7 +231,10 @@ export default function EmojiInspector({
               type="button"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onUpdate({ flipY: !flipY })}
+              onClick={() => {
+                onBeginEdit?.();
+                onUpdate({ flipY: !flipY });
+              }}
               className={`py-3 px-4 rounded-2xl font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 flipY
                   ? 'bg-gradient-to-r from-teal-400 to-teal-500 text-white shadow-md border-b-4 border-teal-600'
