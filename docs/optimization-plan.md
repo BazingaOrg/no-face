@@ -7,9 +7,11 @@
 > **实施状态（2026-07-05，commits 1a8b9bf…91dfbb9）**：
 > ✅ Phase 1 全部完成 — 1.1（设置变更不再重写 emojiUrl，CDN 失败降级原生渲染且导出同样兜底）、1.2（共享图片缓存 lib/emojiImageCache.ts + 过期回调丢弃）、1.3（ZWJ 序列保留 FE0F，CDN 切换 jdecked/twemoji@15.1.0）、1.4（object URL 上传）、1.5（百分比显示）、1.6（换一张清理残留状态、误导日志删除）。
 > ✅ Phase 2 完成 2.1–2.4 — devicePixelRatio 渲染、ResizeObserver 自适应、全部替换批量化、导出复用缓存 + Map 查找；2.5 按计划维持现状。
-> ✅ Phase 3 部分完成 — 3.4 绘制逻辑统一（drawEmojiReplacement）、3.8 上传错误走 Toast、applyUserOffsets/preloadEmojis 已随重构删除；其余待做。
-> ⬜ 待做 — Phase 3 其余（3.1 依赖清理、3.2/3.3 死代码与类型、3.5/3.6/3.7）、Phase 4 文档对齐、Phase 5 工程化、Phase 6 功能。
-> 已通过蒙娜丽莎图端到端验证：上传 → 检测 → 引导 → 替换（Twemoji 新 CDN）→ 重置 → 撤销恢复。
+> ✅ Phase 3 完成（3.7 页面瘦身按"可选"跳过）— 3.1 依赖清理、3.2/3.3 死代码与类型清理、3.4 绘制逻辑统一、3.5 共用检测流程、3.6 合并重复 JSX、3.8 上传错误走 Toast。
+> ✅ Phase 4 完成 — README/CLAUDE.md/ROADMAP 与代码对齐，版本统一 0.2.0。
+> ✅ Phase 5 完成 — vitest 单测（14 例，含 ZWJ 回归）、GitHub Actions CI（lint/typecheck/test/build）、CSP 与安全响应头（已在预览中验证无违规）。
+> ⬜ 待做 — 仅剩 Phase 6 功能项（PWA、拖拽重定位、撤销重做扩展为完整历史栈、中文搜索恢复、实时相机）与 3.7 可选瘦身。
+> 已通过蒙娜丽莎图端到端验证（含 CSP 开启后回归）：上传 → 检测 → 引导 → 替换（Twemoji 新 CDN）→ 重置 → 撤销恢复。
 
 ---
 
