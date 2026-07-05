@@ -58,7 +58,7 @@ All state is managed in `app/page.tsx` using React `useState`:
 - `selectedEmoji`: Currently selected emoji character
 - `detectionSettings`: Face detection configuration (detector type, confidence threshold)
 - `emojiSettings`: Global emoji rendering defaults (scale, opacity, flip)
-- `undoSnapshotRef`: Snapshot of faces + replacements taken before destructive actions (reset / re-detect), restored via the toast's undo button
+- `pastRef` / `futureRef`: Undo/redo history stacks of `{ faces, replacements }` snapshots (capped at 50). `pushHistory()` must be called BEFORE any mutation that should be undoable, capturing the current values from that render's closure
 
 ### Key Data Flow
 
@@ -151,6 +151,16 @@ Settings changes trigger **automatic re-application** of styles (scale, opacity,
 ### Drag to Reposition
 
 Dragging is scoped to whichever face is currently open in the inspector (`activeReplacementId`) — `FaceCanvas` hit-tests pointer-down against that face's emoji rect (`getEmojiScreenRect`) and only starts a drag there, so other faces keep their plain click-to-replace behavior. A 4px movement threshold distinguishes a drag from a tap: below it, pointerup falls through to the normal click handler (still replaces the emoji); above it, the click that follows is suppressed (`justDraggedRef`) so a drag doesn't also re-apply the emoji. Position updates go through `useFrameDebouncedCallback` (one update per animation frame) via `onRepositionActiveEmoji` — wired directly to the inspector's `handleInspectorUpdate`, so dragging and the inspector's own patches share one code path and both mark `isCustom: true`. "恢复默认值" resets `offsetX`/`offsetY` to 0 along with scale/opacity/flip.
+
+### Undo/Redo
+
+A single linear history of `{ faces, replacements }` snapshots (`pastRef`/`futureRef` in `app/page.tsx`, capped at 50 entries). Every mutation site calls `pushHistory()` right before it changes `faces`/`replacements`; `handleUndo`/`handleRedo` pop from one stack, push onto the other, and restore both arrays together (needed because `handleRedetect` generates brand-new face IDs, so old replacements only make sense paired with the old `faces`). A new action after an undo clears the redo stack, matching standard editor semantics.
+
+**Coalescing continuous gestures**: `pushHistory` fires once per discrete action (a face click, "全部替换", "重置", the inspector's buttons) but must NOT fire on every tick of a slider drag or canvas drag — that would make Ctrl+Z step back one pixel at a time. Continuous inputs instead call a separate `onBeginEdit`/`onBeginDragReposition` callback exactly once, at gesture start:
+- `EmojiInspector`: slider `onPointerDown` and number-input `onFocus` (both scale and opacity), plus the flip buttons' `onClick` (a single push right before `onUpdate`)
+- `FaceCanvas`: the moment a drag crosses `DRAG_THRESHOLD_PX` (before the first `scheduleReposition` call for that gesture)
+
+Keyboard shortcuts (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z) are handled by a `window` `keydown` listener in `app/page.tsx`; it's skipped when `event.target` is an `INPUT`/`TEXTAREA`/`contenteditable` element so native text-field undo still works. `handleImageLoad` and "换一张" both call `clearHistory()` — history from a previous photo doesn't carry over.
 
 ### Advanced Settings Panel
 

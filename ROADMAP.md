@@ -127,11 +127,12 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
     - [ ] Auto-rotation based on Face Landmarks 68 (model downloaded but feature disabled)
     - [ ] Consider rotation handle UI similar to professional image editors
 
-- [ ] **Undo/Redo functionality** - 撤销重做功能
-  - **Priority**: 中等 - 用户体验重要增强
-  - [ ] History stack implementation - 历史栈实现
-  - [ ] Keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z) - 键盘快捷键
-  - [ ] Visual undo/redo buttons - 可视化撤销重做按钮
+- [x] **Undo/Redo functionality** - 撤销重做功能 ✅ 2026-07-05
+  - [x] History stack implementation - 多步历史栈（`faces`+`replacements` 快照，上限 50 条，新操作丢弃陈旧的 redo 分支）
+  - [x] Keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z) - 聚焦输入框时跳过，保留原生文本撤销
+  - [x] Visual undo/redo buttons - 状态卡内的 ↩️/↪️ 按钮，栈空时禁用
+  - **Coalescing**: 连续手势（滑杆拖动、画布拖拽）每次手势只记一条历史（手势开始时推入），而非每帧/每次 onChange 都记
+  - **Files**: `app/page.tsx`, `hooks/useInspectorActions.ts`, `components/EmojiInspector.tsx`, `components/FaceCanvas.tsx`
 
 - [x] **Batch operations** - 批量操作（已完成）
   - [x] "Apply to All" button (one-click replace all faces)
@@ -313,7 +314,7 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 ### 📈 Phase 2 功能增强 (Month 2 - 功能迭代)
 - **Month 2 Early**: 个别人脸编辑基础功能
   - ✅ **拖拽重新定位表情符号** - 已完成 (2026-07-05)
-  - 🥈 **撤销重做功能** (用户体验重要增强；重置/重新检测已支持一次性撤销，完整历史栈待实现)
+  - ✅ **撤销重做功能** - 已完成 (2026-07-05)
 - **Month 2 Mid**: 交互增强
   - 🥉 **捏合/滚动缩放** (每个表情独立缩放)
   - 🤔 **表情符号旋转重设计** (解决之前的UX问题)
@@ -357,7 +358,7 @@ This project welcomes contributions! See GitHub issues for open tasks.
 **Priority Focus**:
 - ✅ 高优先级 (已完成): 模型加载进度指示器、大图片优化、Bug 修复、Emoji 加载优化
 - ⚠️ 下一步: 浏览器兼容性测试
-- 📈 Phase 2 准备中: 个别人脸编辑、撤销重做功能
+- ✅ Phase 2 已完成: 个别人脸编辑（含拖拽重定位）、撤销重做功能
 **Recent Updates (v0.2.0 - 2025-10-15)**:
 - ✅ **Bug 修复**:
   - 添加人脸过多（>50）性能警告 Toast

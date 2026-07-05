@@ -132,11 +132,10 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
 - Advanced settings panel & per-face inspector
 - Drag to reposition an emoji on the inspected face
 - Mobile responsive design
-- Undoable reset / re-detect
+- Full Undo/Redo history (buttons + Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z)
 - PWA offline support
 
 **Planned Features**
-- Full Undo/Redo history (currently: undo one step after reset/re-detect)
 - Real-time camera mode (in design)
   - Live face tracking via `@vladmandic/face-api` on `HTMLVideoElement`
   - Streamlined UI entry alongside the existing uploader with a dedicated state machine
@@ -304,11 +303,10 @@ no-face/
 - 高级设置面板与单脸微调抽屉
 - 拖动调整微调中人脸的 Emoji 位置
 - 移动端响应式设计
-- 重置/重新检测可撤销
+- 完整撤销/重做历史栈（按钮 + Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z）
 - PWA 离线支持
 
 **计划功能**
-- 完整撤销/重做历史栈（目前仅支持重置/重新检测后撤销一步）
 - 实时相机模式
 
 ### 🐛 已知问题
