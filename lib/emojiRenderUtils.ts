@@ -103,7 +103,7 @@ export function drawEmojiReplacement(
   replacement: Pick<EmojiReplacement, 'emoji' | 'scale' | 'opacity' | 'flipX' | 'flipY'>,
   image: HTMLImageElement | null
 ): void {
-  const rect = getEmojiScreenRect(box, offset, replacement.scale || 1);
+  const rect = getEmojiScreenRect(box, offset, replacement.scale ?? 1);
   const centerX = rect.x + rect.width / 2;
   const centerY = rect.y + rect.height / 2;
 

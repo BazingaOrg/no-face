@@ -42,6 +42,23 @@ interface DragState {
   isDragging: boolean;
 }
 
+// Original-image → display-canvas (CSS px) coordinate conversion, shared by
+// the draw effect and drag hit-testing so the two can never disagree
+function toDisplaySpace(face: DetectedFace, replacement: EmojiReplacement, scale: number) {
+  return {
+    box: {
+      x: face.box.x * scale,
+      y: face.box.y * scale,
+      width: face.box.width * scale,
+      height: face.box.height * scale,
+    },
+    offset: {
+      x: (replacement.offsetX ?? 0) * scale,
+      y: (replacement.offsetY ?? 0) * scale,
+    },
+  };
+}
+
 export default function FaceCanvas({
   image,
   faces,
@@ -119,8 +136,15 @@ export default function FaceCanvas({
     // Render at devicePixelRatio for crisp output on HiDPI screens;
     // all drawing below stays in CSS-pixel coordinates.
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(canvasSize.width * dpr);
-    canvas.height = Math.round(canvasSize.height * dpr);
+    const targetWidth = Math.round(canvasSize.width * dpr);
+    const targetHeight = Math.round(canvasSize.height * dpr);
+    // Reassigning canvas.width/height resets the entire backing store even
+    // when the value is unchanged — skip it on replacement-only redraws
+    // (this effect runs once per animation frame during drags/slider pulls)
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+    }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
@@ -169,16 +193,7 @@ export default function FaceCanvas({
       const face = faceMap.get(replacement.faceId);
       if (!face) return;
 
-      const box = {
-        x: face.box.x * scale,
-        y: face.box.y * scale,
-        width: face.box.width * scale,
-        height: face.box.height * scale,
-      };
-      const offset = {
-        x: (replacement.offsetX ?? 0) * scale,
-        y: (replacement.offsetY ?? 0) * scale,
-      };
+      const { box, offset } = toDisplaySpace(face, replacement, scale);
 
       const url = replacement.emojiUrl;
 
@@ -231,17 +246,8 @@ export default function FaceCanvas({
     const replacement = replacementMap.get(activeReplacementId);
     if (!face || !replacement) return null;
 
-    const box = {
-      x: face.box.x * scale,
-      y: face.box.y * scale,
-      width: face.box.width * scale,
-      height: face.box.height * scale,
-    };
-    const offset = {
-      x: (replacement.offsetX ?? 0) * scale,
-      y: (replacement.offsetY ?? 0) * scale,
-    };
-    return getEmojiScreenRect(box, offset, replacement.scale || 1);
+    const { box, offset } = toDisplaySpace(face, replacement, scale);
+    return getEmojiScreenRect(box, offset, replacement.scale ?? 1);
   }, [activeReplacementId, faceMap, replacementMap, scale]);
 
   const dragStateRef = useRef<DragState | null>(null);
