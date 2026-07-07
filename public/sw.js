@@ -94,9 +94,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigations and everything else same-origin: network-first with offline fallback
-  if (request.mode === 'navigate' || request.destination === 'document') {
-    event.respondWith(networkFirst(request));
-    return;
-  }
+  // Everything else same-origin (navigations, manifest, public images, any
+  // future route): network-first with cache fallback. This is what actually
+  // serves the precached app shell offline — without a respondWith here,
+  // precached entries like /site.webmanifest would sit unused in the cache
+  // while the browser's default fetch fails.
+  event.respondWith(networkFirst(request));
 });
