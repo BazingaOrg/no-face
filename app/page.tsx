@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { motion, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
@@ -36,6 +36,7 @@ import {
 } from '@/utils/imageOptimization';
 import { runFaceDetection } from '@/lib/runFaceDetection';
 import { useInspectorActions } from '@/hooks/useInspectorActions';
+import { useHistoryStack } from '@/hooks/useHistoryStack';
 
 interface HistorySnapshot {
   faces: DetectedFace[];
@@ -86,55 +87,38 @@ export default function Home() {
   );
 
   // Undo/redo history: a stack of { faces, replacements } snapshots.
-  // Callers must call pushHistory() BEFORE mutating faces/replacements —
-  // it captures the current (pre-change) values from this render's closure.
-  const pastRef = useRef<HistorySnapshot[]>([]);
-  const futureRef = useRef<HistorySnapshot[]>([]);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-
-  const refreshHistoryFlags = useCallback(() => {
-    setCanUndo(pastRef.current.length > 0);
-    setCanRedo(futureRef.current.length > 0);
+  // Callers must call history.push() BEFORE mutating faces/replacements —
+  // it snapshots the latest values via a ref, so push/undo/redo stay stable
+  // across renders (safe to stash in a toast's action button, which outlives
+  // the render that created it).
+  const restoreHistorySnapshot = useCallback((snapshot: HistorySnapshot) => {
+    setFaces(snapshot.faces);
+    setReplacements(snapshot.replacements);
+    setError(null);
   }, []);
 
-  const pushHistory = useCallback(() => {
-    pastRef.current.push({ faces, replacements });
-    if (pastRef.current.length > MAX_HISTORY) pastRef.current.shift();
-    futureRef.current = [];
-    refreshHistoryFlags();
-  }, [faces, replacements, refreshHistoryFlags]);
+  const history = useHistoryStack<HistorySnapshot>(
+    { faces, replacements },
+    restoreHistorySnapshot,
+    MAX_HISTORY
+  );
+  const pushHistory = history.push;
+  const clearHistory = history.clear;
+  const canUndo = history.canUndo;
+  const canRedo = history.canRedo;
 
-  // A fresh image invalidates any history from the previous one
-  const clearHistory = useCallback(() => {
-    pastRef.current = [];
-    futureRef.current = [];
-    refreshHistoryFlags();
-  }, [refreshHistoryFlags]);
-
+  // Depend on history.undo/history.redo directly (not the `history` object
+  // itself, which is a fresh literal every render) so these stay stable too.
+  const { undo, redo } = history;
   const handleUndo = useCallback(() => {
     if (isProcessing) return;
-    const previous = pastRef.current.pop();
-    if (!previous) return;
-
-    futureRef.current.push({ faces, replacements });
-    setFaces(previous.faces);
-    setReplacements(previous.replacements);
-    setError(null);
-    refreshHistoryFlags();
-  }, [isProcessing, faces, replacements, refreshHistoryFlags]);
+    undo();
+  }, [isProcessing, undo]);
 
   const handleRedo = useCallback(() => {
     if (isProcessing) return;
-    const next = futureRef.current.pop();
-    if (!next) return;
-
-    pastRef.current.push({ faces, replacements });
-    setFaces(next.faces);
-    setReplacements(next.replacements);
-    setError(null);
-    refreshHistoryFlags();
-  }, [isProcessing, faces, replacements, refreshHistoryFlags]);
+    redo();
+  }, [isProcessing, redo]);
 
   // Keyboard shortcuts: Ctrl/Cmd+Z to undo, Ctrl/Cmd+Shift+Z to redo.
   // Skipped while an editable field has focus so native text-undo still works.
@@ -464,6 +448,11 @@ export default function Home() {
       const face = faces.find((f) => f.id === faceId);
       if (!face) return;
 
+      // Re-clicking a face that already has this exact emoji is a no-op —
+      // skip it so it doesn't waste an undo step or a CDN preload.
+      const existingReplacement = replacements.find((r) => r.faceId === faceId);
+      if (existingReplacement?.emoji === selectedEmoji) return;
+
       // Snapshot before the async preload, not after — an undo should return
       // to the state right before this click, regardless of preload timing.
       pushHistory();
@@ -507,7 +496,7 @@ export default function Home() {
         // Fallback will handle it gracefully
       }
     },
-    [selectedEmoji, faces, emojiSettings, showToast, pushHistory]
+    [selectedEmoji, faces, replacements, emojiSettings, showToast, pushHistory]
   );
 
   // Apply to all faces: preload the emoji once, then build all replacements
