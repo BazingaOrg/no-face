@@ -8,7 +8,7 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 - [x] Image upload (drag & drop + click + mobile camera)
 - [x] Face detection (face-api.js with SSD MobileNet V1 + Tiny Face Detector)
 - [x] Canvas display with face overlay and interactive face boxes
-- [x] Emoji picker integration (emoji-picker-react); Chinese keyword search removed in a later refactor, planned to return (see UI/UX backlog)
+- [x] Emoji picker integration (emoji-picker-react) with a Chinese-keyword-searchable curated grid (118 emojis) as the fast path; the full ~3600-emoji picker stays lazy-loaded behind an explicit toggle and keeps its own English-only search
 - [x] Click-to-replace workflow
 - [x] Export original quality image (PNG format)
 - [x] Mobile responsive design (Duolingo-inspired UI)
@@ -264,13 +264,13 @@ Privacy-first face masking tool - Replace faces with emojis, all processing done
 - [ ] Keyboard shortcuts
   - [ ] Upload: Ctrl+O / Cmd+O
   - [ ] Export: Ctrl+S / Cmd+S
-  - [ ] Undo: Ctrl+Z / Cmd+Z
+  - [x] Undo/Redo: Ctrl+Z / Cmd+Z, Ctrl+Shift+Z / Cmd+Shift+Z ✅ 2026-07-05
 - [x] Dark mode support
   - [x] System preference detection
   - [ ] Manual toggle
 - [ ] Multiple languages
   - [ ] i18n setup
-  - [ ] Chinese emoji search (removed in refactor, to be rebuilt)
+  - [x] Chinese emoji search ✅ 2026-07-07 — Chinese-keyword search over a hand-curated 118-emoji pool (`lib/emojiSearch.ts`); the full emoji-picker-react panel remains English-only (no API to inject aliases into its bundled dataset)
   - [ ] Full UI translation (English, Chinese, Spanish, Japanese)
 
 ## 📈 Analytics & Metrics (Privacy-focused)

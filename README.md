@@ -133,6 +133,7 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
 - Drag to reposition an emoji on the inspected face
 - Mobile responsive design
 - Full Undo/Redo history (buttons + Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z)
+- Chinese keyword search over a curated emoji set
 - PWA offline support
 
 **Planned Features**
@@ -151,7 +152,7 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
 - Large images are auto-downscaled to 1920px for detection (export keeps original quality)
 - Browser compatibility testing in progress (Chrome/Edge/Firefox/Safari)
 - Emoji picker loads 3600+ emojis when opened - virtualization planned
-- Chinese emoji keyword search is planned but not yet available
+- Chinese keyword search covers the curated set of 118 common emojis; the full picker (once expanded) only supports English search (a limitation of emoji-picker-react)
 
 ### 🤝 Contributing
 
@@ -304,6 +305,7 @@ no-face/
 - 拖动调整微调中人脸的 Emoji 位置
 - 移动端响应式设计
 - 完整撤销/重做历史栈（按钮 + Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z）
+- 精选表情的中文关键词搜索
 - PWA 离线支持
 
 **计划功能**
@@ -314,7 +316,7 @@ no-face/
 - 大图片会自动压缩到 1920px 用于检测（导出保持原始画质）
 - 浏览器兼容性测试进行中（Chrome/Edge/Firefox/Safari）
 - Emoji 选择器展开时加载 3600+ 表情 - 计划虚拟化优化
-- 中文 Emoji 关键词搜索在计划中，当前尚未提供
+- 中文关键词搜索覆盖精选的 118 个常用表情；展开完整表情库后仅支持英文搜索（emoji-picker-react 的限制）
 
 ### 🤝 参与贡献
 

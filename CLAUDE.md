@@ -43,7 +43,7 @@ See `MODELS_SETUP.md` for detailed instructions.
 
 1. **Image Upload** (`components/ImageUploader.tsx`) - Drag & drop, click, or mobile camera (object URL based)
 2. **Face Detection** (`lib/runFaceDetection.ts` → `lib/faceApi.ts`) - @vladmandic/face-api with SSD MobileNet V1 or Tiny Face Detector; large images are downscaled first via `utils/imageOptimization.ts`
-3. **Emoji Selection** (`components/EmojiSelector.tsx`) - emoji-picker-react with search, plus a random button
+3. **Emoji Selection** (`components/EmojiSelector.tsx`) - Chinese-searchable curated grid by default, full emoji-picker-react panel on demand, plus a random button
 4. **Canvas Display** (`components/FaceCanvas.tsx`) - Interactive preview with click-to-replace, per-face badges, devicePixelRatio rendering, drag-to-reposition on the inspected face
 5. **Per-face Tuning** (`components/EmojiInspector.tsx`) - Bottom sheet for scale/opacity/flip on a single face
 6. **Export** (`app/page.tsx:handleExport`) - Original quality PNG drawn with the same routine as the preview (`drawEmojiReplacement`)
@@ -172,8 +172,10 @@ The settings panel uses a **unified card-style design** (v0.2.0):
 
 ### Emoji Selector
 
-- The full emoji-picker-react panel renders only when the user expands it (collapsed by default)
-- A curated list of ~140 popular emojis backs the random button (`POPULAR_EMOJIS` in `components/EmojiSelector.tsx`)
+- Opening "🎨 选择表情" shows a Chinese-searchable grid over the curated pool first (`lib/emojiSearch.ts`'s `searchCuratedEmojis`, matched against hand-written keywords in `EMOJI_KEYWORDS_ZH`) — `emoji-picker-react` has no API to add aliases to its bundled Unicode dataset, so Chinese search only covers this curated set, not the full picker
+- The full emoji-picker-react panel (~3600 emojis, English search only) stays lazy-loaded behind a separate "展开完整表情库" toggle, unmounted until explicitly opened
+- `POPULAR_EMOJIS` in `components/EmojiSelector.tsx` also backs the 🎲 random button (kept with intentional duplicates so common expressions are weighted higher); `CURATED_EMOJI_POOL` is the deduped version used for the search grid
+- Search query and the full-picker toggle both reset when the panel closes
 
 ### Known Issues
 
@@ -208,7 +210,7 @@ See `ROADMAP.md` for detailed technical debt and known issues:
 ## File Locations
 
 - Face detection logic: `lib/faceApi.ts`, `lib/runFaceDetection.ts`
-- Emoji utilities: `lib/twemoji.ts`, `lib/emojiImageCache.ts`
+- Emoji utilities: `lib/twemoji.ts`, `lib/emojiImageCache.ts`, `lib/emojiSearch.ts` (Chinese keyword search)
 - Emoji rendering: `lib/emojiRenderUtils.ts`
 - Image optimization: `utils/imageOptimization.ts`
 - Type definitions: `types/index.ts`
