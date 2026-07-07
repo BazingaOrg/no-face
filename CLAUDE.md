@@ -58,7 +58,7 @@ All state is managed in `app/page.tsx` using React `useState`:
 - `selectedEmoji`: Currently selected emoji character
 - `detectionSettings`: Face detection configuration (detector type, confidence threshold)
 - `emojiSettings`: Global emoji rendering defaults (scale, opacity, flip)
-- `pastRef` / `futureRef`: Undo/redo history stacks of `{ faces, replacements }` snapshots (capped at 50). `pushHistory()` must be called BEFORE any mutation that should be undoable, capturing the current values from that render's closure
+- `useHistoryStack` (`hooks/useHistoryStack.ts`): Undo/redo history of `{ faces, replacements }` snapshots (capped at 50). `pushHistory()` must be called BEFORE any mutation that should be undoable; the hook reads the current value through a per-render-updated ref, so push/undo/redo keep stable identities (safe to store in a toast's action button, which outlives the render that created it)
 
 ### Key Data Flow
 
@@ -154,7 +154,7 @@ Dragging is scoped to whichever face is currently open in the inspector (`active
 
 ### Undo/Redo
 
-A single linear history of `{ faces, replacements }` snapshots (`pastRef`/`futureRef` in `app/page.tsx`, capped at 50 entries). Every mutation site calls `pushHistory()` right before it changes `faces`/`replacements`; `handleUndo`/`handleRedo` pop from one stack, push onto the other, and restore both arrays together (needed because `handleRedetect` generates brand-new face IDs, so old replacements only make sense paired with the old `faces`). A new action after an undo clears the redo stack, matching standard editor semantics.
+A single linear history of `{ faces, replacements }` snapshots, implemented by the generic `useHistoryStack` hook (`hooks/useHistoryStack.ts`, capped at 50 entries). The hook reads the current value through a ref updated every render, so `push`/`undo`/`redo` keep stable identities while always snapshotting the latest state at invocation time — this is what makes them safe to store in the toast's action button (a per-render closure stored in state would go stale before the user clicks it, corrupting the redo stack). Every mutation site calls `pushHistory()` right before it changes `faces`/`replacements`; both arrays restore together because `handleRedetect` generates brand-new face IDs, so old replacements only make sense paired with the old `faces`. A new action after an undo clears the redo stack, matching standard editor semantics. `handleFaceClick` skips the push (and the whole update) when the clicked face already has the selected emoji, so repeat clicks don't burn no-op undo steps.
 
 **Coalescing continuous gestures**: `pushHistory` fires once per discrete action (a face click, "全部替换", "重置", the inspector's buttons) but must NOT fire on every tick of a slider drag or canvas drag — that would make Ctrl+Z step back one pixel at a time. Continuous inputs instead call a separate `onBeginEdit`/`onBeginDragReposition` callback exactly once, at gesture start:
 - `EmojiInspector`: slider `onPointerDown` and number-input `onFocus` (both scale and opacity), plus the flip buttons' `onClick` (a single push right before `onUpdate`)
