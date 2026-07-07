@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { EMOJI_KEYWORDS_ZH, searchCuratedEmojis } from './emojiSearch';
+import {
+  CURATED_EMOJI_POOL,
+  EMOJI_KEYWORDS_ZH,
+  searchCuratedEmojis,
+} from './emojiSearch';
 
 const POOL = ['😀', '😭', '🐶', '🐼', '💀'];
 
@@ -33,12 +37,19 @@ describe('searchCuratedEmojis', () => {
     expect(searchCuratedEmojis('笑', pool)).toEqual(['😀']);
   });
 
-  it('has a keyword entry for every emoji it is asked to search over', () => {
-    // Guards against silently losing search coverage if the curated list changes
-    // without updating EMOJI_KEYWORDS_ZH
-    for (const emoji of POOL) {
-      expect(EMOJI_KEYWORDS_ZH[emoji]).toBeDefined();
-      expect(EMOJI_KEYWORDS_ZH[emoji].length).toBeGreaterThan(0);
-    }
+  it('has a keyword entry for every emoji in the real curated pool', () => {
+    // Guards against silently losing search coverage if the curated list
+    // changes without updating EMOJI_KEYWORDS_ZH — an unmapped emoji would
+    // just never match any query, with no runtime error
+    const missing = CURATED_EMOJI_POOL.filter(
+      (emoji) => !EMOJI_KEYWORDS_ZH[emoji]?.length
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it('has no orphaned keyword entries for emojis outside the curated pool', () => {
+    const pool = new Set(CURATED_EMOJI_POOL);
+    const orphaned = Object.keys(EMOJI_KEYWORDS_ZH).filter((emoji) => !pool.has(emoji));
+    expect(orphaned).toEqual([]);
   });
 });

@@ -1,12 +1,57 @@
 /**
- * Chinese keyword search over the curated emoji pool.
+ * Curated emoji pool and its Chinese keyword search.
  *
  * emoji-picker-react's built-in search only matches English emoji names and
  * exposes no way to add aliases to its bundled Unicode dataset — so Chinese
- * search is only practical against our own curated list (components/EmojiSelector.tsx),
- * not the full ~3600-emoji picker. Keywords are grouped below to mirror that
- * curated list's categories for easier maintenance.
+ * search is only practical against our own curated list, not the full
+ * ~3600-emoji picker. The pool and its keywords live in this one module so
+ * they can't drift apart unnoticed; emojiSearch.test.ts asserts full 1:1
+ * coverage between them.
  */
+
+// Curated selection of fun and expressive emojis for face replacement.
+// Intentional duplicates weight the random button toward common expressions.
+export const POPULAR_EMOJIS = [
+  // 🎭 经典笑脸 - Classic Smiles
+  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
+
+  // 😘 调情可爱 - Flirty & Cute
+  '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
+
+  // 🤪 搞怪卖萌 - Goofy & Playful
+  '🥲', '😋', '😛', '😜', '🤪', '😝', '🤗', '🤭', '🤫', '🤑',
+
+  // 🤔 思考疑惑 - Thinking & Curious
+  '🤔', '🤨', '😐', '😑', '😶', '😏', '🙄', '😬', '🤓', '🧐',
+
+  // 😴 疲惫无奈 - Tired & Reluctant
+  '😴', '😪', '🤤', '😔', '😌', '🥱', '😕', '😟', '🙁', '☹️',
+
+  // 🤯 夸张震惊 - Dramatic & Shocked
+  '🤯', '😵', '🥴', '😮', '😯', '😲', '😳', '🥺', '😱', '🤠',
+
+  // 😎 酷炫自信 - Cool & Confident
+  '😎', '🥳', '🥸', '🤠', '😏', '🤑', '🤩', '🤪', '😜', '😉',
+
+  // 😢 悲伤难过 - Sad & Emotional
+  '🥺', '😢', '😭', '😥', '😦', '😧', '😨', '😰', '😓', '😩',
+
+  // 😡 生气愤怒 - Angry & Furious
+  '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡',
+
+  // 👻 恐怖惊悚 - Spooky & Scary
+  '👻', '👹', '👺', '💀', '☠️', '🤡', '👽', '👾', '🎃', '🤖',
+
+  // 🐱 可爱动物 - Cute Animals
+  '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐶',
+  '🐕', '🐩', '🦁', '🐯', '🐺', '🦄', '🐷', '🐗', '🐨', '🐼',
+
+  // 🤒 生病不适 - Sick & Unwell
+  '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🤥', '😵'
+];
+
+// Deduped version used for the search grid
+export const CURATED_EMOJI_POOL = [...new Set(POPULAR_EMOJIS)];
 
 export const EMOJI_KEYWORDS_ZH: Record<string, string[]> = {
   // 经典笑脸 - Classic Smiles

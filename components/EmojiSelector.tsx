@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { searchCuratedEmojis } from '@/lib/emojiSearch';
+import { searchCuratedEmojis, POPULAR_EMOJIS, CURATED_EMOJI_POOL } from '@/lib/emojiSearch';
 
 interface EmojiSelectorProps {
   onEmojiSelect: (emoji: string) => void;
@@ -13,51 +13,6 @@ interface EmojiSelectorProps {
   replacedCount?: number;
   totalFaces?: number;
 }
-
-// Curated selection of fun and expressive emojis for face replacement
-// Each category contains 10-20 carefully selected emojis
-const POPULAR_EMOJIS = [
-  // 🎭 经典笑脸 - Classic Smiles
-  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
-
-  // 😘 调情可爱 - Flirty & Cute
-  '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
-
-  // 🤪 搞怪卖萌 - Goofy & Playful
-  '🥲', '😋', '😛', '😜', '🤪', '😝', '🤗', '🤭', '🤫', '🤑',
-
-  // 🤔 思考疑惑 - Thinking & Curious
-  '🤔', '🤨', '😐', '😑', '😶', '😏', '🙄', '😬', '🤓', '🧐',
-
-  // 😴 疲惫无奈 - Tired & Reluctant
-  '😴', '😪', '🤤', '😔', '😌', '🥱', '😕', '😟', '🙁', '☹️',
-
-  // 🤯 夸张震惊 - Dramatic & Shocked
-  '🤯', '😵', '🥴', '😮', '😯', '😲', '😳', '🥺', '😱', '🤠',
-
-  // 😎 酷炫自信 - Cool & Confident
-  '😎', '🥳', '🥸', '🤠', '😏', '🤑', '🤩', '🤪', '😜', '😉',
-
-  // 😢 悲伤难过 - Sad & Emotional
-  '🥺', '😢', '😭', '😥', '😦', '😧', '😨', '😰', '😓', '😩',
-
-  // 😡 生气愤怒 - Angry & Furious
-  '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡',
-
-  // 👻 恐怖惊悚 - Spooky & Scary
-  '👻', '👹', '👺', '💀', '☠️', '🤡', '👽', '👾', '🎃', '🤖',
-
-  // 🐱 可爱动物 - Cute Animals
-  '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐶',
-  '🐕', '🐩', '🦁', '🐯', '🐺', '🦄', '🐷', '🐗', '🐨', '🐼',
-
-  // 🤒 生病不适 - Sick & Unwell
-  '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🤥', '😵'
-];
-
-// Deduped for the search grid — POPULAR_EMOJIS keeps repeats on purpose
-// (they weight the random button toward more common expressions)
-const CURATED_EMOJI_POOL = [...new Set(POPULAR_EMOJIS)];
 
 export default function EmojiSelector({
   onEmojiSelect,
