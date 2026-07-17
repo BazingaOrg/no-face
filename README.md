@@ -104,7 +104,7 @@ no-face/
 │   └── index.ts              # TypeScript type definitions
 ├── public/models/            # Face detection models (self-hosted)
 ├── docs/                     # Design specs & improvement plans
-├── ROADMAP.md                # Development roadmap
+├── docs/plans/            # Step-by-step plan docs (source of truth for TODOs)
 ├── MODELS_SETUP.md           # Model setup guide
 └── CLAUDE.md                 # Developer documentation
 ```
@@ -113,8 +113,8 @@ no-face/
 
 #### Face Detection
 
-- **Default detector**: SSD MobileNet V1 (high accuracy)
-- **Alternative**: Tiny Face Detector (faster, lower accuracy)
+- **Default detector**: Tiny Face Detector (fast, loaded on first upload)
+- **Alternative**: SSD MobileNet V1 (higher accuracy, loaded on demand when selected)
 - **Models**: Self-hosted in `public/models/` (see [MODELS_SETUP.md](./MODELS_SETUP.md))
 
 #### Emoji Settings
@@ -125,7 +125,7 @@ no-face/
 
 ### 📋 Roadmap
 
-See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
+See [docs/plans/2026-07-17-perf-and-model-optimization.md](./docs/plans/2026-07-17-perf-and-model-optimization.md) for the current plan.
 
 **MVP Completed** ✅
 - Image upload, face detection, emoji replacement
@@ -156,7 +156,7 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plans.
 
 ### 🤝 Contributing
 
-Contributions are welcome! Please check [ROADMAP.md](./ROADMAP.md) for open tasks.
+Contributions are welcome! Please check [docs/plans/](./docs/plans/) for open tasks.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
@@ -276,7 +276,7 @@ no-face/
 │   └── index.ts              # TypeScript 类型定义
 ├── public/models/            # 人脸检测模型（本地托管）
 ├── docs/                     # 设计规范与改进方案
-├── ROADMAP.md                # 开发路线图
+├── docs/plans/            # 分步执行方案（待办事项唯一来源）
 ├── MODELS_SETUP.md           # 模型配置指南
 └── CLAUDE.md                 # 开发者文档
 ```
@@ -285,8 +285,8 @@ no-face/
 
 #### 人脸检测
 
-- **默认检测器**: SSD MobileNet V1（高精度）
-- **备选检测器**: Tiny Face Detector（更快，精度较低）
+- **默认检测器**: Tiny Face Detector（更快，首次上传时才加载）
+- **备选检测器**: SSD MobileNet V1（高精度，切换时按需加载）
 - **模型加载**: 本地托管于 `public/models/`（详见 [MODELS_SETUP.md](./MODELS_SETUP.md)）
 
 #### Emoji 设置
@@ -297,7 +297,7 @@ no-face/
 
 ### 📋 开发路线图
 
-详见 [ROADMAP.md](./ROADMAP.md)。
+详见 [docs/plans/2026-07-17-perf-and-model-optimization.md](./docs/plans/2026-07-17-perf-and-model-optimization.md)。
 
 **MVP 已完成** ✅
 - 图片上传、人脸检测、Emoji 替换
@@ -320,7 +320,7 @@ no-face/
 
 ### 🤝 参与贡献
 
-欢迎贡献代码！请查看 [ROADMAP.md](./ROADMAP.md) 了解待完成任务。
+欢迎贡献代码！请查看 [docs/plans/](./docs/plans/) 了解待完成任务。
 
 1. Fork 本仓库
 2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)

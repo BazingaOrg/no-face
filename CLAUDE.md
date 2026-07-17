@@ -33,7 +33,7 @@ bun run lint
 
 ### Model Files Setup
 
-Face detection models are self-hosted in `public/models/` (SSD MobileNet V1, Tiny Face Detector, and the optional Face Landmarks 68). The `MODEL_URLS` constant in `lib/faceApi.ts` lists the local path first with CDN fallbacks.
+Face detection models are self-hosted in `public/models/` (SSD MobileNet V1 and Tiny Face Detector; the default is Tiny, SSD is the on-demand high-accuracy mode). The `MODEL_URLS` constant in `lib/faceApi.ts` lists the local path first with CDN fallbacks.
 
 See `MODELS_SETUP.md` for detailed instructions.
 
@@ -179,7 +179,7 @@ The settings panel uses a **unified card-style design** (v0.2.0):
 
 ### Known Issues
 
-See `ROADMAP.md` for detailed technical debt and known issues:
+See `docs/plans/2026-07-17-perf-and-model-optimization.md` for the current plan and remaining debt:
 
 - ✅ Large images (>10MB) - **Solved**: Auto-compression to 1920px with coordinate mapping
 - ⚠️ Safari compatibility needs testing
@@ -189,7 +189,7 @@ See `ROADMAP.md` for detailed technical debt and known issues:
 
 ### When Adding Features
 
-1. **Check ROADMAP.md first** - Planned features and technical debt are tracked there
+1. **Check `docs/plans/` first** - The latest plan doc is the source of truth for planned features and technical debt
 2. **Update types/** if adding new data structures
 3. **Settings should be configurable** - Add to `DetectionSettings` or `EmojiSettings` interfaces
 4. **Maintain privacy guarantee** - All processing must remain client-side
@@ -218,6 +218,6 @@ See `ROADMAP.md` for detailed technical debt and known issues:
 - Components: `components/*.tsx`
 - Hooks: `hooks/*.ts`
 - Models: `public/models/` (self-hosted)
-- Roadmap: `ROADMAP.md`
+- Plans (source of truth for TODOs): `docs/plans/`
 - Model setup guide: `MODELS_SETUP.md`
 - Design specs & improvement plans: `docs/`
