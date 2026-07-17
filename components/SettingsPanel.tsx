@@ -138,17 +138,17 @@ export default function SettingsPanel({
                   paddingRight: '2.5rem',
                 }}
               >
-                <option value="ssd_mobilenetv1" className="text-base md:text-sm font-bold py-2">
-                  🎯 标准模式（推荐）
-                </option>
                 <option value="tiny_face_detector" className="text-base md:text-sm font-bold py-2">
-                  ⚡ 极速模式
+                  ⚡ 极速模式（默认）
+                </option>
+                <option value="ssd_mobilenetv1" className="text-base md:text-sm font-bold py-2">
+                  🎯 高精度模式
                 </option>
               </select>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
                 {detectionSettings.detector === 'ssd_mobilenetv1'
-                  ? '标准模式，适合大多数场景'
-                  : '快速模式，可能遗漏部分人脸'}
+                  ? '高精度模式，切换时按需加载模型'
+                  : '默认模式，速度快，适合大多数场景'}
               </p>
             </div>
 
@@ -219,8 +219,9 @@ export default function SettingsPanel({
             <motion.button
               onClick={() => {
                 onDetectionChange({
-                  detector: 'ssd_mobilenetv1',
+                  detector: 'tiny_face_detector',
                   minConfidence: 0.5,
+                  inputSize: 416,
                 });
                 onEmojiChange({
                   scale: 1.2,

@@ -39,15 +39,12 @@ const MODEL_URL = MODEL_URLS[0]; // Use local models
 const loadedModels = {
   ssdMobilenetv1: false,
   tinyFaceDetector: false,
-  faceLandmark68Net: false,
 };
-
-let areLandmarksLoaded = false;
 
 /**
  * Load a specific model
  */
-async function loadSpecificModel(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector' | 'faceLandmark68Net'): Promise<void> {
+async function loadSpecificModel(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector'): Promise<void> {
   if (loadedModels[modelName]) return;
 
   const api = await getFaceApi();
@@ -61,11 +58,6 @@ async function loadSpecificModel(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector
       case 'tinyFaceDetector':
         await api.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
         loadedModels.tinyFaceDetector = true;
-        break;
-      case 'faceLandmark68Net':
-        await api.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-        loadedModels.faceLandmark68Net = true;
-        areLandmarksLoaded = true;
         break;
     }
   } catch (error) {
@@ -159,60 +151,16 @@ export async function loadTinyModel(silent = false): Promise<void> {
 }
 
 /**
- * Load Face Landmarks 68 model
- */
-export async function loadLandmarksModel(silent = false): Promise<void> {
-  if (silent) {
-    // Silent mode: load without progress updates
-    try {
-      await loadSpecificModel('faceLandmark68Net');
-    } catch {
-      console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
-    }
-  } else {
-    // With progress simulation
-    try {
-      await simulateProgressiveLoading(
-        'faceLandmark68Net',
-        0,
-        100,
-        loadSpecificModel('faceLandmark68Net')
-      );
-      console.log('✅ Face Landmarks 68 模型加载成功');
-    } catch {
-      console.warn('⚠️ Face Landmarks 68 模型未找到，自动旋转功能将不可用');
-      // Still report 100% to close the loading modal
-      if (progressCallback) {
-        progressCallback({
-          model: 'faceLandmark68Net',
-          loaded: 1,
-          total: 1,
-          percentage: 100,
-        });
-      }
-    }
-  }
-}
-
-/**
  * Check if a specific model is loaded
  */
-export function isModelLoaded(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector' | 'faceLandmark68Net'): boolean {
+export function isModelLoaded(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector'): boolean {
   return loadedModels[modelName];
 }
 
 /**
- * Check if landmarks model is loaded
+ * Detect faces in the given input using the configured detector.
  */
-export function areLandmarksAvailable(): boolean {
-  return areLandmarksLoaded;
-}
-
-/**
- * Detect faces with landmarks (if available)
- * Returns faces with landmarks for auto-rotation feature
- */
-export async function detectFacesWithLandmarks(
+export async function detectFaces(
   input: HTMLImageElement | HTMLCanvasElement,
   settings: DetectionSettings
 ): Promise<DetectedFace[]> {
@@ -233,11 +181,7 @@ export async function detectFacesWithLandmarks(
         scoreThreshold: settings.scoreThreshold || 0.5,
       });
 
-      if (areLandmarksLoaded) {
-        detections = await api.detectAllFaces(input, options).withFaceLandmarks();
-      } else {
-        detections = await api.detectAllFaces(input, options);
-      }
+      detections = await api.detectAllFaces(input, options);
     } else {
       // Default: SSD MobileNet V1
       if (!loadedModels.ssdMobilenetv1) {
@@ -248,44 +192,24 @@ export async function detectFacesWithLandmarks(
         minConfidence: settings.minConfidence || 0.5,
       });
 
-      if (areLandmarksLoaded) {
-        detections = await api.detectAllFaces(input, options).withFaceLandmarks();
-      } else {
-        detections = await api.detectAllFaces(input, options);
-      }
+      detections = await api.detectAllFaces(input, options);
     }
 
     // Convert to our DetectedFace format
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return detections.map((detection: any, index: number) => {
-      // Check if detection has landmarks (nested structure) or not (flat structure)
-      const hasLandmarks = 'landmarks' in detection && detection.landmarks;
-      const detectionBox = hasLandmarks ? detection.detection.box : detection.box;
-      const detectionScore = hasLandmarks ? detection.detection : detection;
-
-      const face: DetectedFace = {
-        id: `face-${Date.now()}-${index}`,
-        box: {
-          x: detectionBox.x,
-          y: detectionBox.y,
-          width: detectionBox.width,
-          height: detectionBox.height,
-        },
-        detection: {
-          score: detectionScore.score,
-          classScore: detectionScore.classScore,
-        },
-      };
-
-      // Add landmarks if available
-      if (hasLandmarks) {
-        // Store landmarks for auto-rotation calculation
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (face as any).landmarks = detection.landmarks;
-      }
-
-      return face;
-    });
+    return detections.map((detection: any, index: number) => ({
+      id: `face-${Date.now()}-${index}`,
+      box: {
+        x: detection.box.x,
+        y: detection.box.y,
+        width: detection.box.width,
+        height: detection.box.height,
+      },
+      detection: {
+        score: detection.score,
+        classScore: detection.classScore,
+      },
+    }));
   } catch (error) {
     console.error('Face detection error:', error);
     throw new Error('Face detection failed');

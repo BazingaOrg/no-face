@@ -9,19 +9,13 @@
  * Bump CACHE_VERSION whenever precached assets change so old caches are
  * dropped on activate instead of accumulating forever.
  */
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `no-face-${CACHE_VERSION}`;
 
-const MODEL_ASSETS = [
-  '/models/ssd_mobilenetv1_model-weights_manifest.json',
-  '/models/ssd_mobilenetv1_model.bin',
-  '/models/tiny_face_detector_model-weights_manifest.json',
-  '/models/tiny_face_detector_model.bin',
-  '/models/face_landmark_68_model-weights_manifest.json',
-  '/models/face_landmark_68_model.bin',
-];
-
-const APP_SHELL = ['/', '/site.webmanifest', '/kaonashi.jpg', ...MODEL_ASSETS];
+// Model files are NOT precached here — they're large (~5.6MB combined) and
+// addAll fails the whole install if any one entry 404s. They're instead
+// filled in lazily by the runtime cacheFirst handler below on first request.
+const APP_SHELL = ['/', '/site.webmanifest', '/kaonashi.jpg'];
 
 const TWEMOJI_ORIGIN = 'https://cdn.jsdelivr.net';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { motion, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
@@ -56,12 +56,12 @@ export default function Home() {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [, setHasLandmarks] = useState(false); // Landmarks state for future features
   const [activeReplacementId, setActiveReplacementId] = useState<string | null>(null);
-  
-  // Model loading state
+
+  // Model loading state (loading is deferred to first upload / detector switch,
+  // so this starts idle instead of isLoading: true)
   const [modelLoadingState, setModelLoadingState] = useState<ModelLoadingState>({
-    isLoading: true,
+    isLoading: false,
     progress: 0,
     currentModel: '',
     loadedModels: [],
@@ -147,8 +147,9 @@ export default function Home() {
 
   // Settings (now mutable)
   const [detectionSettings, setDetectionSettings] = useState<DetectionSettings>({
-    detector: 'ssd_mobilenetv1',
+    detector: 'tiny_face_detector',
     minConfidence: 0.5,
+    inputSize: 416,
   });
 
   const [emojiSettings, setEmojiSettings] = useState<EmojiSettings>({
@@ -245,73 +246,79 @@ export default function Home() {
     }
   }, [activeReplacementId, replacements]);
 
-  // Load models progressively on mount
+  // Set up the model loading progress callback once on mount. Actual model
+  // loading is deferred until it's needed (first upload, or switching
+  // detector in settings) — see ensureDetectorModelLoaded below.
   useEffect(() => {
-    const initModels = async () => {
-      try {
-        // Set up progress callback
-        setModelLoadingProgressCallback((progress) => {
-          setModelLoadingState({
-            isLoading: true,
-            progress: progress.percentage,
-            currentModel: progress.model,
-            loadedModels: progress.loaded > 0 ? ['ssdMobilenetv1'] : [],
-          });
-        });
-
-        // Stage 1: Load default detector (SSD) - blocking with progress UI
-        await loadSSDModel();
-
-        // Mark first stage complete
-        setModelLoadingState({
-          isLoading: false,
-          progress: 100,
-          currentModel: '',
-          loadedModels: ['ssdMobilenetv1'],
-        });
-
-        // Stage 2: Load Tiny Face Detector in background (silent, non-blocking)
-        // This ensures smooth switching without wait time
-        setTimeout(async () => {
-          try {
-            await loadTinyModel(true); // Silent load
-            console.log('✅ Tiny Face Detector 已在后台加载完成');
-          } catch (error) {
-            console.warn('⚠️ Tiny Face Detector 后台加载失败:', error);
-          }
-        }, 500); // Small delay to let UI settle
-
-        // Stage 3: Face Landmarks 68 will be loaded on-demand when needed (Phase 2 feature)
-      } catch (error) {
-        console.error('模型加载失败:', error);
-        setModelLoadingState((prev) => ({
-          ...prev,
-          isLoading: false,
-        }));
-        setError('模型加载失败，请刷新页面或检查网络后重试');
-      }
-    };
-
-    initModels();
+    setModelLoadingProgressCallback((progress) => {
+      setModelLoadingState({
+        isLoading: true,
+        progress: progress.percentage,
+        currentModel: progress.model,
+        loadedModels: [],
+      });
+    });
   }, []);
 
-  // Handle detector change - load model if needed
+  // Loads the model for a given detector if it isn't already loaded,
+  // showing the blocking ModelLoadingModal (isLoading: true) while it does.
+  // Used for the very first load triggered by an image upload.
+  const ensureDetectorModelLoaded = useCallback(async (detector: DetectionSettings['detector']) => {
+    const modelName = detector === 'tiny_face_detector' ? 'tinyFaceDetector' : 'ssdMobilenetv1';
+    if (isModelLoaded(modelName)) return;
+
+    try {
+      if (detector === 'tiny_face_detector') {
+        await loadTinyModel(false); // With progress
+      } else {
+        await loadSSDModel();
+      }
+      setModelLoadingState({
+        isLoading: false,
+        progress: 100,
+        currentModel: '',
+        loadedModels: [modelName],
+      });
+    } catch (error) {
+      console.error('模型加载失败:', error);
+      setModelLoadingState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
+      setError('模型加载失败，请刷新页面或检查网络后重试');
+      throw error;
+    }
+  }, []);
+
+  // Handle detector change - load model on demand if needed (skipped on the
+  // initial mount, since the first load is instead triggered by the first
+  // image upload via ensureDetectorModelLoaded).
+  const isFirstDetectorEffect = useRef(true);
   useEffect(() => {
+    if (isFirstDetectorEffect.current) {
+      isFirstDetectorEffect.current = false;
+      return;
+    }
+
     const handleDetectorChange = async () => {
       const detector = detectionSettings.detector;
-      
-      // Check if model is loaded
-      if (detector === 'tiny_face_detector' && !isModelLoaded('tinyFaceDetector')) {
-        // Show toast notification
-        showToast('⏳ 正在加载极速模式');
+      const modelName = detector === 'tiny_face_detector' ? 'tinyFaceDetector' : 'ssdMobilenetv1';
 
-        try {
+      if (isModelLoaded(modelName)) return;
+
+      const label = detector === 'tiny_face_detector' ? '极速模式' : '标准模式';
+      showToast(`⏳ 正在加载${label}`);
+
+      try {
+        if (detector === 'tiny_face_detector') {
           await loadTinyModel(false); // Load with progress
-          showToast('✅ 极速模式就绪');
-        } catch (error) {
-          console.error('检测器加载失败:', error);
-          showToast('❌ 极速模式加载失败，请检查网络后重试');
+        } else {
+          await loadSSDModel();
         }
+        showToast(`✅ ${label}就绪`);
+      } catch (error) {
+        console.error('检测器加载失败:', error);
+        showToast(`❌ ${label}加载失败，请检查网络后重试`);
       }
     };
 
@@ -356,8 +363,6 @@ export default function Home() {
         scale,
       });
 
-      setHasLandmarks(detectionResult.hasLandmarks);
-
       if (detectionResult.isEmpty) {
         setError('🙈 没找到人脸，试试降低灵敏度');
         return;
@@ -385,6 +390,16 @@ export default function Home() {
       clearHistory();
 
       try {
+        // Load the currently selected detector's model if this is the first
+        // time it's needed (deferred from mount so the app doesn't block on
+        // a model download before the user has even uploaded anything).
+        try {
+          await ensureDetectorModelLoaded(detectionSettings.detector);
+        } catch {
+          // ensureDetectorModelLoaded already set the error message; stop here.
+          return;
+        }
+
         // Determine processing message based on file size
         const sizeCategory = fileSize ? getImageSizeCategory(fileSize) : 'small';
         if (sizeCategory === 'large') {
@@ -423,7 +438,7 @@ export default function Home() {
         setProcessingMessage('');
       }
     },
-    [detectAndSetFaces, clearHistory]
+    [detectAndSetFaces, clearHistory, ensureDetectorModelLoaded, detectionSettings.detector]
   );
 
   // Handle emoji selection

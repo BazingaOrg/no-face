@@ -10,7 +10,6 @@ interface ModelLoadingModalProps {
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   ssdMobilenetv1: 'SSD MobileNet V1',
   tinyFaceDetector: 'Tiny Face Detector',
-  faceLandmark68Net: 'Face Landmarks 68',
 };
 
 export default function ModelLoadingModal({ state }: ModelLoadingModalProps) {

@@ -1,4 +1,4 @@
-import { areLandmarksAvailable, detectFacesWithLandmarks } from '@/lib/faceApi';
+import { detectFaces } from '@/lib/faceApi';
 import { DetectionSettings, DetectedFace } from '@/types';
 import { mapCoordinatesToOriginal } from '@/utils/imageOptimization';
 
@@ -10,7 +10,6 @@ export interface RunFaceDetectionOptions {
 
 export interface RunFaceDetectionResult {
   faces: DetectedFace[];
-  hasLandmarks: boolean;
   faceCount: number;
   isEmpty: boolean;
 }
@@ -24,7 +23,7 @@ export async function runFaceDetection({
   settings,
   scale = 1,
 }: RunFaceDetectionOptions): Promise<RunFaceDetectionResult> {
-  const detectedFaces = await detectFacesWithLandmarks(input, settings);
+  const detectedFaces = await detectFaces(input, settings);
 
   const faces =
     scale < 1
@@ -35,11 +34,9 @@ export async function runFaceDetection({
       : detectedFaces;
 
   const faceCount = faces.length;
-  const hasLandmarks = areLandmarksAvailable();
 
   return {
     faces,
-    hasLandmarks,
     faceCount,
     isEmpty: faceCount === 0,
   };

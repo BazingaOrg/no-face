@@ -7,17 +7,11 @@
 - `ssd_mobilenetv1_model` - SSD MobileNet V1 人脸检测器（推荐）
 - `tiny_face_detector_model` - Tiny Face 检测器（极速模式）
 
-### 📦 可选模型（高级功能）
+### ❌ 已移除模型
 
-#### Face Landmarks 68 Model
+#### Face Landmarks 68 Model（已移除）
 
-**功能：** 支持自动旋转功能，让表情自动匹配人脸角度
-
-**文件：**
-- `face_landmark_68_model-weights_manifest.json`
-- `face_landmark_68_model.bin`
-
-**大小：** ~350KB
+**状态：** 该模型全库无调用点（自动旋转功能从未上线），已在 2026-07-17 的性能优化中移除，不再使用。以下章节仅作历史记录保留。
 
 ---
 
