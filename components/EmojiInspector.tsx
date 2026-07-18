@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { m } from 'framer-motion';
 import { EmojiReplacement, EmojiSettings } from '@/types';
 import { useFrameDebouncedCallback } from '@/hooks/useFrameDebouncedCallback';
+import { useI18n } from '@/lib/i18n';
 
 interface EmojiInspectorProps {
   replacement: EmojiReplacement;
@@ -38,6 +39,7 @@ export default function EmojiInspector({
   onClose,
   className,
 }: EmojiInspectorProps) {
+  const { t } = useI18n();
   const scheduleUpdate = useFrameDebouncedCallback(onUpdate);
   const scaleValue = replacement.scale ?? defaultSettings.scale;
   const opacityValue = replacement.opacity ?? defaultSettings.opacity;
@@ -106,11 +108,11 @@ export default function EmojiInspector({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-sm font-semibold text-blue-600 dark:text-blue-300 uppercase tracking-wide">微调表情</p>
+          <p className="text-sm font-semibold text-blue-600 dark:text-blue-300 uppercase tracking-wide">{t.inspector.kicker}</p>
           <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100">{label}</h2>
           {replacement.isCustom && (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
-              ⚙️ 已自定义
+              {t.inspector.customBadge}
             </span>
           )}
         </div>
@@ -120,13 +122,13 @@ export default function EmojiInspector({
       </div>
 
       <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
-        💡 在图片上拖动表情可调整位置
+        {t.inspector.dragHint}
       </p>
 
       <div className="grid gap-6 md:grid-cols-2">
         <section className={SECTION_CLASS}>
           <header className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">表情大小</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">{t.inspector.sizeLabel}</h3>
             <div className="flex items-center gap-1.5">
               <input
                 type="number"
@@ -147,7 +149,7 @@ export default function EmojiInspector({
                 className={INPUT_CLASS}
                 inputMode="decimal"
               />
-              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">倍</span>
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{t.inspector.sizeUnit}</span>
             </div>
           </header>
           <input
@@ -161,14 +163,14 @@ export default function EmojiInspector({
             className={SLIDER_CLASS}
           />
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 font-medium">
-            <span>😊 较小</span>
-            <span>😆 较大</span>
+            <span>{t.inspector.smaller}</span>
+            <span>{t.inspector.larger}</span>
           </div>
         </section>
 
         <section className={SECTION_CLASS}>
           <header className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">透明度</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">{t.inspector.opacityLabel}</h3>
             <div className="flex items-center gap-1.5">
               <input
                 type="number"
@@ -189,7 +191,7 @@ export default function EmojiInspector({
                 className={INPUT_CLASS}
                 inputMode="numeric"
               />
-              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">%</span>
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{t.inspector.opacityUnit}</span>
             </div>
           </header>
           <input
@@ -203,13 +205,13 @@ export default function EmojiInspector({
             className={SLIDER_CLASS}
           />
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 font-medium">
-            <span>👻 半透明</span>
-            <span>💯 不透明</span>
+            <span>{t.inspector.transparent}</span>
+            <span>{t.inspector.opaque}</span>
           </div>
         </section>
 
         <section className={`md:col-span-2 ${SECTION_CLASS}`}>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">翻转调整</h3>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t.inspector.flipSectionTitle}</h3>
           <div className="grid grid-cols-2 gap-3">
             <m.button
               type="button"
@@ -225,7 +227,7 @@ export default function EmojiInspector({
                   : 'bg-gray-100 dark:bg-slate-800/80 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700 border-b-4 border-gray-300 dark:border-slate-600'
               }`}
             >
-              ⬌ 水平翻转
+              {t.inspector.flipX}
             </m.button>
             <m.button
               type="button"
@@ -241,7 +243,7 @@ export default function EmojiInspector({
                   : 'bg-gray-100 dark:bg-slate-800/80 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700 border-b-4 border-gray-300 dark:border-slate-600'
               }`}
             >
-              ⬍ 垂直翻转
+              {t.inspector.flipY}
             </m.button>
           </div>
         </section>
@@ -255,7 +257,7 @@ export default function EmojiInspector({
           onClick={onAdoptAsDefault}
           className="gradient-action btn-ghost"
         >
-          设为默认
+          {t.inspector.adoptDefault}
         </m.button>
         <m.button
           type="button"
@@ -264,7 +266,7 @@ export default function EmojiInspector({
           onClick={onApplyToAll}
           className="gradient-action btn-secondary"
         >
-          全部应用
+          {t.inspector.applyAll}
         </m.button>
         <m.button
           type="button"
@@ -273,7 +275,7 @@ export default function EmojiInspector({
           onClick={onResetToDefault}
           className="gradient-action btn-ghost"
         >
-          恢复默认值
+          {t.inspector.resetDefault}
         </m.button>
         <m.button
           type="button"
@@ -282,7 +284,7 @@ export default function EmojiInspector({
           onClick={onClose}
           className="gradient-action btn-ghost"
         >
-          完成
+          {t.inspector.done}
         </m.button>
       </div>
     </m.div>

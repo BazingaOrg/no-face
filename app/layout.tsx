@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { LazyMotion, domMax } from "framer-motion";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import { LanguageProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "カオナシ No Face - 用 Emoji 隐藏照片里的人脸",
@@ -40,10 +41,12 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased">
-        <LazyMotion features={domMax} strict>
-          {children}
-        </LazyMotion>
-        <ServiceWorkerRegistration />
+        <LanguageProvider>
+          <LazyMotion features={domMax} strict>
+            {children}
+          </LazyMotion>
+          <ServiceWorkerRegistration />
+        </LanguageProvider>
       </body>
     </html>
   );

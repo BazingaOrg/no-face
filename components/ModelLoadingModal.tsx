@@ -2,18 +2,21 @@
 
 import { m, AnimatePresence } from 'framer-motion';
 import { ModelLoadingState } from '@/types';
+import { useI18n } from '@/lib/i18n';
 
 interface ModelLoadingModalProps {
   state: ModelLoadingState;
 }
 
-// Indeterminate: no fabricated percentage, just which phase the Worker is in.
-const PHASE_LABELS: Record<'wasm' | 'model', string> = {
-  wasm: '下载运行时',
-  model: '加载检测模型',
-};
-
 export default function ModelLoadingModal({ state }: ModelLoadingModalProps) {
+  const { t } = useI18n();
+
+  // Indeterminate: no fabricated percentage, just which phase the Worker is in.
+  const PHASE_LABELS: Record<'wasm' | 'model', string> = {
+    wasm: t.modelLoading.phaseWasm,
+    model: t.modelLoading.phaseModel,
+  };
+
   if (!state.isLoading) return null;
 
   return (
@@ -49,10 +52,10 @@ export default function ModelLoadingModal({ state }: ModelLoadingModalProps) {
 
           {/* Title */}
           <h2 className="text-2xl font-black text-gray-800 dark:text-gray-100 text-center mb-2">
-            正在加载检测引擎
+            {t.modelLoading.title}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
-            首次使用需要下载模型，请稍候...
+            {t.modelLoading.subtitle}
           </p>
 
           {/* Current Phase Info */}
@@ -76,7 +79,7 @@ export default function ModelLoadingModal({ state }: ModelLoadingModalProps) {
 
           {/* Tip */}
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-6">
-            💡 提示：模型仅需加载一次，后续访问将秒开
+            {t.modelLoading.tip}
           </p>
         </m.div>
       </m.div>

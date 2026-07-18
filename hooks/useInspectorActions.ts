@@ -1,5 +1,6 @@
 import { useCallback, Dispatch, SetStateAction } from 'react';
 import { EmojiReplacement, EmojiSettings } from '@/types';
+import { useI18n } from '@/lib/i18n';
 
 interface UseInspectorActionsParams {
   activeReplacement: EmojiReplacement | null;
@@ -29,6 +30,8 @@ export function useInspectorActions({
   setActiveReplacementId,
   pushHistory,
 }: UseInspectorActionsParams) {
+  const { t } = useI18n();
+
   const handleUpdate = useCallback(
     (patch: Partial<EmojiReplacement>) => {
       if (!activeReplacement) return;
@@ -55,8 +58,8 @@ export function useInspectorActions({
       { customState: false }
     );
 
-    showToast('🌟 样式回到默认啦');
-  }, [activeReplacement, emojiSettings, applyReplacementPatch, pushHistory, showToast]);
+    showToast(t.toasts.resetToDefaultDone);
+  }, [activeReplacement, emojiSettings, applyReplacementPatch, pushHistory, showToast, t]);
 
   const handleAdoptAsDefault = useCallback(() => {
     if (!activeReplacement) return;
@@ -83,7 +86,7 @@ export function useInspectorActions({
       { customState: false }
     );
 
-    showToast('✅ 默认样式已更新');
+    showToast(t.toasts.adoptedAsDefault);
   }, [
     activeReplacement,
     emojiSettings,
@@ -91,6 +94,7 @@ export function useInspectorActions({
     applyReplacementPatch,
     pushHistory,
     showToast,
+    t,
   ]);
 
   const handleApplyToAll = useCallback(() => {
@@ -113,8 +117,8 @@ export function useInspectorActions({
       }))
     );
 
-    showToast('🚀 全部表情同步完成');
-  }, [activeReplacement, emojiSettings, setReplacements, pushHistory, showToast]);
+    showToast(t.toasts.appliedToAll);
+  }, [activeReplacement, emojiSettings, setReplacements, pushHistory, showToast, t]);
 
   const handleClose = useCallback(() => {
     setActiveReplacementId(null);

@@ -3,6 +3,7 @@
 import { m } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { DetectionSettings, EmojiSettings } from '@/types';
+import { useI18n } from '@/lib/i18n';
 
 interface SettingsPanelProps {
   detectionSettings: DetectionSettings;
@@ -22,6 +23,7 @@ export default function SettingsPanel({
   isOpen,
   onToggle,
 }: SettingsPanelProps) {
+  const { t } = useI18n();
   const currentSensitivity = detectionSettings.minConfidence ?? 0.5;
 
   // Text input works in whole percentages (10-90); settings store 0.1-0.9
@@ -61,7 +63,7 @@ export default function SettingsPanel({
           }`}
         >
           <span className="flex items-center gap-2">
-            ⚙️ 高级设置
+            {t.settings.toggle}
           </span>
           <m.svg
             animate={{ rotate: isOpen ? 180 : 0 }}
@@ -97,14 +99,14 @@ export default function SettingsPanel({
           {/* Detection Settings */}
           <div>
             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-              🔍 人脸检测
+              {t.settings.detectionTitle}
             </h3>
 
             {/* Detection Sensitivity */}
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  检测灵敏度
+                  {t.settings.sensitivityLabel}
                 </label>
                 <div className="flex items-center gap-1.5">
                   <input
@@ -138,8 +140,8 @@ export default function SettingsPanel({
                 className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
-                <span>😊 更多检测</span>
-                <span>🎯 更严格</span>
+                <span>{t.settings.moreDetections}</span>
+                <span>{t.settings.stricter}</span>
               </div>
             </div>
           </div>
@@ -160,7 +162,7 @@ export default function SettingsPanel({
               whileTap={{ scale: 0.98 }}
               className="gradient-action btn-ghost"
             >
-              🔄 恢复默认设置
+              {t.settings.resetDefaults}
             </m.button>
           </div>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { m, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
@@ -36,6 +36,7 @@ import {
 import { runFaceDetection } from '@/lib/runFaceDetection';
 import { useInspectorActions } from '@/hooks/useInspectorActions';
 import { useHistoryStack } from '@/hooks/useHistoryStack';
+import { useI18n } from '@/lib/i18n';
 
 interface HistorySnapshot {
   faces: DetectedFace[];
@@ -45,6 +46,8 @@ interface HistorySnapshot {
 const MAX_HISTORY = 50;
 
 export default function Home() {
+  const { t, lang, setLang } = useI18n();
+
   // State management
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [optimizedImage, setOptimizedImage] = useState<OptimizedImage | null>(null);
@@ -165,7 +168,30 @@ export default function Home() {
   );
 
   const isInspectorOpen = Boolean(activeReplacement);
-  const inspectorPadding = isInspectorOpen ? '18rem' : undefined;
+
+  // Measure the inspector panel's actual rendered height (it varies with
+  // content/viewport) instead of a hardcoded padding guess, so small screens
+  // don't have their bottom faces hidden behind the panel.
+  const inspectorPanelRef = useRef<HTMLDivElement>(null);
+  const [inspectorPanelHeight, setInspectorPanelHeight] = useState(0);
+
+  useEffect(() => {
+    const node = inspectorPanelRef.current;
+    if (!isInspectorOpen || !node || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setInspectorPanelHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isInspectorOpen]);
+
+  // Fallback to a generous estimate before the first measurement lands.
+  const inspectorPadding = isInspectorOpen
+    ? `calc(${inspectorPanelHeight > 0 ? `${inspectorPanelHeight}px` : '18rem'} + env(safe-area-inset-bottom) + 1.5rem)`
+    : undefined;
 
   const applyReplacementPatch = useCallback(
     (
@@ -263,12 +289,12 @@ export default function Home() {
       await initFaceDetector();
       setModelLoadingState({ isLoading: false, phase: null });
     } catch (error) {
-      console.error('模型加载失败:', error);
+      console.error('Model load failed:', error);
       setModelLoadingState({ isLoading: false, phase: null });
-      setError('模型加载失败，请刷新页面或检查网络后重试');
+      setError(t.error.modelLoadFailed);
       throw error;
     }
-  }, []);
+  }, [t]);
 
   // Auto-apply emoji settings when they change
   // Only update styles (scale, opacity, flip). Never touch emojiUrl here:
@@ -310,17 +336,17 @@ export default function Home() {
       });
 
       if (detectionResult.isEmpty) {
-        setError('🙈 没找到人脸，试试降低灵敏度');
+        setError(t.error.noFacesFound);
         return;
       }
 
       // Performance warning for too many faces
       if (detectionResult.faceCount > 50) {
-        showToast(`🤯 发现 ${detectionResult.faceCount} 张脸，稍等我慢慢处理`);
+        showToast(t.toasts.manyFaces(detectionResult.faceCount));
       }
       setFaces(detectionResult.faces);
     },
-    [detectionSettings, showToast]
+    [detectionSettings, showToast, t]
   );
 
   // Handle image upload
@@ -349,11 +375,11 @@ export default function Home() {
         // Determine processing message based on file size
         const sizeCategory = fileSize ? getImageSizeCategory(fileSize) : 'small';
         if (sizeCategory === 'large') {
-          setProcessingMessage('⚙️ 正在瘦身图片');
+          setProcessingMessage(t.processing.shrinking);
         } else if (sizeCategory === 'medium') {
-          setProcessingMessage('🌀 图片处理中');
+          setProcessingMessage(t.processing.analyzing);
         } else {
-          setProcessingMessage('🔍 正在找脸');
+          setProcessingMessage(t.processing.detecting);
         }
 
         // Optimize image for detection if needed
@@ -361,11 +387,11 @@ export default function Home() {
         let scale = 1;
 
         if (img.naturalWidth > 1920) {
-          setProcessingMessage('⚙️ 正在瘦身图片');
-          
+          setProcessingMessage(t.processing.shrinking);
+
           // Add small delay to let UI update
           await new Promise(resolve => setTimeout(resolve, 100));
-          
+
           const optimized = await optimizeImageForDetection(img, 1920);
           setOptimizedImage(optimized);
           imageToDetect = optimized.optimizedCanvas;
@@ -374,18 +400,100 @@ export default function Home() {
           setOptimizedImage(null);
         }
 
-        setProcessingMessage('🔍 正在找脸');
+        setProcessingMessage(t.processing.detecting);
         await detectAndSetFaces(imageToDetect, scale);
       } catch (error) {
-        console.error('人脸检测失败:', error);
-        setError('😵 检测出错了，点「重新检测」再试一次');
+        console.error('Face detection failed:', error);
+        setError(t.error.detectionFailed);
       } finally {
         setIsProcessing(false);
         setProcessingMessage('');
       }
     },
-    [detectAndSetFaces, clearHistory, ensureFaceDetectorReady]
+    [detectAndSetFaces, clearHistory, ensureFaceDetectorReady, t]
   );
+
+  // Whole-window drag & drop: dropping a new image anywhere replaces the
+  // current one via the same handleImageLoad path (reset + redetect).
+  const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const windowDragDepthRef = useRef(0);
+
+  const handleWindowDroppedFile = useCallback(
+    (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        showToast(t.toasts.unsupportedFileType);
+        return;
+      }
+
+      const maxSize = 20 * 1024 * 1024;
+      if (file.size > maxSize) {
+        showToast(t.toasts.fileTooLarge);
+        return;
+      }
+
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        handleImageLoad(img, file.size);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        showToast(t.toasts.imageLoadFailed);
+      };
+      img.src = url;
+    },
+    [showToast, handleImageLoad, t]
+  );
+
+  useEffect(() => {
+    const handleDragEnter = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes('Files')) return;
+      e.preventDefault();
+      windowDragDepthRef.current += 1;
+      setIsWindowDragging(true);
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes('Files')) return;
+      e.preventDefault();
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes('Files')) return;
+      e.preventDefault();
+      windowDragDepthRef.current = Math.max(0, windowDragDepthRef.current - 1);
+      if (windowDragDepthRef.current === 0) {
+        setIsWindowDragging(false);
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes('Files')) return;
+      e.preventDefault();
+      windowDragDepthRef.current = 0;
+      setIsWindowDragging(false);
+
+      if (isProcessing) return;
+
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        handleWindowDroppedFile(files[0]);
+      }
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('drop', handleDrop);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, [isProcessing, handleWindowDroppedFile]);
 
   // Handle emoji selection
   const handleEmojiSelect = useCallback(
@@ -401,7 +509,7 @@ export default function Home() {
     async (faceId: string) => {
       if (!selectedEmoji) {
         // Guide the user to pick an emoji first instead of failing silently
-        showToast('👇 先选一个表情，再点人脸');
+        showToast(t.toasts.pickEmojiFirst);
         setIsEmojiPickerOpen(true);
         return;
       }
@@ -457,7 +565,7 @@ export default function Home() {
         // Fallback will handle it gracefully
       }
     },
-    [selectedEmoji, faces, replacements, emojiSettings, showToast, pushHistory]
+    [selectedEmoji, faces, replacements, emojiSettings, showToast, pushHistory, t]
   );
 
   // Apply to all faces: preload the emoji once, then build all replacements
@@ -499,13 +607,13 @@ export default function Home() {
     pushHistory();
     setReplacements([]);
     setActiveReplacementId(null);
-    showToast('♻️ 已清空全部替换', { label: '撤销', handler: handleUndo });
-  }, [replacements, pushHistory, showToast, handleUndo]);
+    showToast(t.toasts.resetCleared, { label: t.common.undo, handler: handleUndo });
+  }, [replacements, pushHistory, showToast, handleUndo, t]);
 
   const handleInspectFace = useCallback((faceId: string) => {
     const target = replacements.find((replacement) => replacement.faceId === faceId);
     if (!target) {
-      showToast('😶 先替换表情再微调吧');
+      showToast(t.toasts.replaceFirstToInspect);
       return;
     }
 
@@ -518,7 +626,7 @@ export default function Home() {
         badge?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     }
-  }, [replacements, showToast]);
+  }, [replacements, showToast, t]);
 
   // Re-detect faces with new settings (clears replacements, undoable via toast)
   const handleRedetect = useCallback(async () => {
@@ -534,7 +642,7 @@ export default function Home() {
     setActiveReplacementId(null);
     setError(null);
     setIsProcessing(true);
-    setProcessingMessage('🔁 正在重新找脸');
+    setProcessingMessage(t.processing.redetecting);
 
     try {
       // Use optimized image if available
@@ -543,20 +651,20 @@ export default function Home() {
 
       await detectAndSetFaces(imageToDetect, scale);
     } catch (error) {
-      console.error('重新检测失败:', error);
-      setError('😵 检测出错了，点「重新检测」再试一次');
+      console.error('Redetection failed:', error);
+      setError(t.error.detectionFailed);
     } finally {
       setIsProcessing(false);
       setProcessingMessage('');
 
       if (hadReplacements) {
-        showToast('🔄 已重新检测，之前的替换被清空', {
-          label: '撤销',
+        showToast(t.toasts.redetectCleared, {
+          label: t.common.undo,
           handler: handleUndo,
         });
       }
     }
-  }, [image, optimizedImage, replacements, pushHistory, detectAndSetFaces, showToast, handleUndo]);
+  }, [image, optimizedImage, replacements, pushHistory, detectAndSetFaces, showToast, handleUndo, t]);
 
 
   // Export image
@@ -618,10 +726,10 @@ export default function Home() {
         a.click();
         URL.revokeObjectURL(url);
 
-        showToast('✅ 图片已保存到下载');
+        showToast(t.toasts.exportSuccess);
       }, 'image/png');
     });
-  }, [image, faces, replacements, showToast]);
+  }, [image, faces, replacements, showToast, t]);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -629,15 +737,32 @@ export default function Home() {
       {/* Model Loading Modal */}
       <ModelLoadingModal state={modelLoadingState} />
 
+      {/* Whole-window drag overlay */}
+      <AnimatePresence>
+        {isWindowDragging && (
+          <m.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-blue-500/20 backdrop-blur-sm pointer-events-none"
+          >
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl px-8 py-6 border-4 border-dashed border-blue-400 text-center">
+              <div className="text-5xl mb-2">🖼️</div>
+              <p className="text-xl font-black text-gray-800 dark:text-gray-100">{t.windowDrag.dropHint}</p>
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
+
       {/* Processing Overlay */}
       <AnimatePresence>
         {isProcessing && processingMessage && (
           <ProcessingOverlay
             message={processingMessage}
             hint={
-              processingMessage.includes('瘦身')
-                ? '图片瘦身中，导出依旧高清'
-                : '稍等片刻，正在分析图片...'
+              processingMessage === t.processing.shrinking
+                ? t.processing.hintShrinking
+                : t.processing.hintDefault
             }
           />
         )}
@@ -663,8 +788,18 @@ export default function Home() {
         <m.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-6 flex flex-col items-center justify-center"
+          className="relative text-center mb-6 flex flex-col items-center justify-center"
         >
+          {/* Language toggle */}
+          <button
+            type="button"
+            onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+            className="absolute right-0 top-0 text-xs font-bold px-2.5 py-1 rounded-full bg-white/80 dark:bg-slate-800/80 border border-gray-300 dark:border-slate-600 text-gray-600 dark:text-gray-300 shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors"
+            aria-label={t.languageToggle.aria}
+          >
+            {t.languageToggle.switchToLabel}
+          </button>
+
           {/* Logo */}
           <m.div
             animate={{ rotate: [0, -10, 10, -10, 0] }}
@@ -686,7 +821,7 @@ export default function Home() {
 
           {/* Title */}
           <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight shimmer-text bg-clip-text">
-            カオナシ
+            {t.header.title}
           </h1>
 
           {/* Subtitle with privacy promise */}
@@ -697,10 +832,10 @@ export default function Home() {
             className="mt-2 flex flex-wrap items-center justify-center gap-2 px-4"
           >
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full shadow-sm text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              🔒 本地处理
+              {t.header.privacyBadge}
             </span>
             <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              用 Emoji 隐藏照片里的脸，图片不会离开你的浏览器
+              {t.header.tagline}
             </p>
           </m.div>
         </m.div>
@@ -762,7 +897,7 @@ export default function Home() {
               className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-5 text-center border-4 border-orange-400 dark:border-orange-500"
             >
               <div className="text-4xl mb-2">⚠️</div>
-              <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">提示</p>
+              <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">{t.error.title}</p>
               <p className="text-gray-600 dark:text-gray-300">{error}</p>
             </m.div>
           )}
@@ -777,9 +912,9 @@ export default function Home() {
               <div className="space-y-2">
                 {/* Detection result */}
                 <span className="text-2xl font-black text-gray-900 dark:text-gray-100 block">
-                  ✓ 检测到 {faces.length} 张人脸
+                  {t.status.facesDetected(faces.length)}
                 </span>
-                
+
                 {/* Replacement progress */}
                 {replacements.length > 0 && (
                   <m.div
@@ -789,11 +924,11 @@ export default function Home() {
                   >
                     {replacements.length === faces.length ? (
                       <span className="text-green-600 dark:text-green-400">
-                        🎉 已全部替换 <span className="text-gray-500 dark:text-gray-500 text-xs">({replacements.length}/{faces.length})</span>
+                        {t.status.allReplacedLabel} <span className="text-gray-500 dark:text-gray-500 text-xs">{t.status.progressCount(replacements.length, faces.length)}</span>
                       </span>
                     ) : (
                       <span className="text-blue-600 dark:text-blue-400">
-                        ⏳ 已替换 <span className="text-gray-500 dark:text-gray-500 text-xs">({replacements.length}/{faces.length})</span>
+                        {t.status.replacedLabel} <span className="text-gray-500 dark:text-gray-500 text-xs">{t.status.progressCount(replacements.length, faces.length)}</span>
                       </span>
                     )}
                   </m.div>
@@ -808,9 +943,9 @@ export default function Home() {
                   whileHover={canUndo ? { scale: 1.02 } : {}}
                   whileTap={canUndo ? { scale: 0.98 } : {}}
                   className={`text-sm px-3 py-1.5 btn-duo ${canUndo ? 'btn-ghost' : 'btn-disabled'}`}
-                  title="撤销 (Ctrl/Cmd+Z)"
+                  title={t.actions.undoTitle}
                 >
-                  ↩️ 撤销
+                  {t.actions.undo}
                 </m.button>
                 <m.button
                   onClick={handleRedo}
@@ -818,9 +953,9 @@ export default function Home() {
                   whileHover={canRedo ? { scale: 1.02 } : {}}
                   whileTap={canRedo ? { scale: 0.98 } : {}}
                   className={`text-sm px-3 py-1.5 btn-duo ${canRedo ? 'btn-ghost' : 'btn-disabled'}`}
-                  title="重做 (Ctrl/Cmd+Shift+Z)"
+                  title={t.actions.redoTitle}
                 >
-                  ↪️ 重做
+                  {t.actions.redo}
                 </m.button>
                 <m.button
                   onClick={handleRedetect}
@@ -828,7 +963,7 @@ export default function Home() {
                   whileTap={{ scale: 0.98 }}
                   className="text-sm px-3 py-1.5 btn-duo btn-secondary"
                 >
-                  🔄 重新检测
+                  {t.actions.redetect}
                 </m.button>
                 <m.button
                   onClick={() => {
@@ -846,7 +981,7 @@ export default function Home() {
                   whileTap={{ scale: 0.98 }}
                   className="text-sm px-3 py-1.5 btn-duo btn-ghost"
                 >
-                  📤 换一张
+                  {t.actions.newPhoto}
                 </m.button>
               </div>
             </m.div>
@@ -885,11 +1020,11 @@ export default function Home() {
                 className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
                   selectedEmoji ? 'btn-secondary' : 'btn-disabled'
                 }`}
-                title={!selectedEmoji ? '请先选择表情' : ''}
+                title={!selectedEmoji ? t.actions.applyAllTitleDisabled : ''}
               >
                 <span className="text-lg md:text-xl">⚡</span>
-                全部替换
-                {replacements.length > 0 && <span className="sr-only"> 已替换 {replacements.length} 项</span>}
+                {t.actions.applyAll}
+                {replacements.length > 0 && <span className="sr-only"> {t.status.srReplacedCount(replacements.length)}</span>}
               </m.button>
               <m.button
                 onClick={handleReset}
@@ -899,10 +1034,10 @@ export default function Home() {
                 className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
                   replacements.length > 0 ? 'btn-ghost' : 'btn-disabled'
                 }`}
-                title={replacements.length === 0 ? '暂无可重置的内容' : ''}
+                title={replacements.length === 0 ? t.actions.resetTitleDisabled : ''}
               >
                 <span className="text-lg md:text-xl">♻️</span>
-                重置
+                {t.actions.reset}
               </m.button>
               <m.button
                 onClick={handleExport}
@@ -912,10 +1047,10 @@ export default function Home() {
                 className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
                   replacements.length > 0 ? 'btn-primary' : 'btn-disabled'
                 }`}
-                title={replacements.length === 0 ? '请先替换表情' : ''}
+                title={replacements.length === 0 ? t.actions.downloadTitleDisabled : ''}
               >
                 <span className="text-lg md:text-xl">📥</span>
-                下载图片
+                {t.actions.download}
               </m.button>
             </m.div>
           )}
@@ -925,6 +1060,7 @@ export default function Home() {
         {activeReplacement && !isProcessing && (
           <m.div
             key={activeReplacement.faceId}
+            ref={inspectorPanelRef}
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
@@ -953,13 +1089,13 @@ export default function Home() {
                 onPointerDown={handleInspectorHandlePointerDown}
                 whileTap={{ scaleX: 1.05 }}
                 className="mb-2 mx-auto block h-1.5 w-12 rounded-full bg-white/70 dark:bg-slate-500 cursor-grab active:cursor-grabbing"
-                aria-label="拖动关闭微调面板"
+                aria-label={t.inspector.dragHandleAria}
               />
               <div className="overflow-hidden rounded-[26px] border border-white/40 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl shadow-[0_20px_45px_-20px_rgba(15,23,42,0.45)]">
                 <EmojiInspector
                   replacement={activeReplacement}
                   defaultSettings={emojiSettings}
-                  label={activeFaceIndex >= 0 ? `第 ${activeFaceIndex + 1} 张脸` : '人脸'}
+                  label={activeFaceIndex >= 0 ? t.inspector.faceLabel(activeFaceIndex + 1) : t.inspector.faceFallback}
                   onUpdate={handleInspectorUpdate}
                   onBeginEdit={pushHistory}
                   onResetToDefault={handleInspectorReset}

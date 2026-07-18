@@ -22,20 +22,8 @@ export default function ProcessingOverlay({ message, hint }: ProcessingOverlayPr
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4"
       >
-        {/* Animated Icon */}
-        <m.div
-          animate={{ 
-            rotate: 360,
-            scale: [1, 1.1, 1]
-          }}
-          transition={{ 
-            rotate: { duration: 2, repeat: Infinity, ease: "linear" },
-            scale: { duration: 1, repeat: Infinity, ease: "easeInOut" }
-          }}
-          className="text-5xl text-center mb-4"
-        >
-          🔍
-        </m.div>
+        {/* Icon */}
+        <div className="text-5xl text-center mb-4">🔍</div>
 
         {/* Message */}
         <m.p
@@ -69,25 +57,6 @@ export default function ProcessingOverlay({ message, hint }: ProcessingOverlayPr
             animate={{ x: ['-60%', '140%'] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
           />
-        </div>
-
-        {/* Animated Progress Dots */}
-        <div className="flex justify-center gap-2 mt-4">
-          {[0, 1, 2].map((i) => (
-            <m.div
-              key={i}
-              animate={{
-                scale: [1, 1.5, 1],
-                opacity: [0.3, 1, 0.3],
-              }}
-              transition={{
-                duration: 1,
-                repeat: Infinity,
-                delay: i * 0.2,
-              }}
-              className="w-2 h-2 bg-blue-500 rounded-full"
-            />
-          ))}
         </div>
       </m.div>
     </m.div>

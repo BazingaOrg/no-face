@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { searchCuratedEmojis, POPULAR_EMOJIS, CURATED_EMOJI_POOL } from '@/lib/emojiSearch';
+import { useI18n } from '@/lib/i18n';
 
 interface EmojiSelectorProps {
   onEmojiSelect: (emoji: string) => void;
@@ -22,6 +23,7 @@ export default function EmojiSelector({
   replacedCount = 0,
   totalFaces = 0,
 }: EmojiSelectorProps) {
+  const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFullPicker, setShowFullPicker] = useState(false);
 
@@ -62,10 +64,10 @@ export default function EmojiSelector({
             {selectedEmoji ? (
               <span className="flex items-center gap-2">
                 <span className="text-2xl">{selectedEmoji}</span>
-                <span>当前表情</span>
+                <span>{t.emojiSelector.currentLabel}</span>
               </span>
             ) : (
-              '🎨 选择表情'
+              t.emojiSelector.chooseButton
             )}
           </span>
           <svg
@@ -89,7 +91,7 @@ export default function EmojiSelector({
           whileHover={{ scale: 1.05, rotate: 180 }}
           whileTap={{ scale: 0.95 }}
           className="py-3 px-4 bg-gradient-to-r from-pink-400 to-rose-500 hover:from-pink-500 hover:to-rose-600 text-white rounded-2xl font-black text-lg shadow-lg transition-all border-b-4 border-rose-600 active:border-b-0 active:mt-1"
-          title="随机表情"
+          title={t.emojiSelector.randomTitle}
         >
           🎲
         </m.button>
@@ -112,7 +114,7 @@ export default function EmojiSelector({
                 type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="搜索表情，比如「笑」「猫」「生气」..."
+                placeholder={t.emojiSelector.searchPlaceholder}
                 className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 text-sm font-medium text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-300/60 transition-colors"
               />
 
@@ -132,7 +134,7 @@ export default function EmojiSelector({
                 </div>
               ) : (
                 <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-2">
-                  🙈 没找到匹配的表情，试试展开完整表情库
+                  {t.emojiSelector.noMatch}
                 </p>
               )}
 
@@ -141,7 +143,7 @@ export default function EmojiSelector({
                 onClick={() => setShowFullPicker((prev) => !prev)}
                 className="w-full text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline text-center py-1"
               >
-                {showFullPicker ? '▲ 收起完整表情库' : '▼ 展开完整表情库（3600+，英文搜索）'}
+                {showFullPicker ? t.emojiSelector.collapseFull : t.emojiSelector.expandFull}
               </button>
 
               {showFullPicker && (
@@ -149,7 +151,7 @@ export default function EmojiSelector({
                   onEmojiClick={handleEmojiClick}
                   theme={Theme.AUTO}
                   skinTonesDisabled
-                  searchPlaceHolder="Search in English..."
+                  searchPlaceHolder={t.emojiSelector.fullPickerSearchPlaceholder}
                   width="100%"
                   height={350}
                   previewConfig={{
@@ -171,13 +173,13 @@ export default function EmojiSelector({
           key={`${selectedEmoji}-${replacedCount}-${totalFaces}`}
         >
           {!selectedEmoji ? (
-            '👈 先选择或随机一个表情'
+            t.emojiSelector.hintPickFirst
           ) : replacedCount === 0 ? (
-            '👆 点击人脸应用表情，或点击全部替换'
+            t.emojiSelector.hintClickFace
           ) : replacedCount === totalFaces ? (
-            '✨ 可单独调整人脸，或重新随机选择'
+            t.emojiSelector.hintDoneAdjust
           ) : (
-            `👆 继续点击其他人脸 (${replacedCount}/${totalFaces})`
+            t.emojiSelector.hintContinue(replacedCount, totalFaces)
           )}
         </m.p>
       )}

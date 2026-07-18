@@ -2,6 +2,12 @@
 
 import { useCallback, useState } from 'react';
 import { m } from 'framer-motion';
+import { useI18n } from '@/lib/i18n';
+
+// NASA public-domain Expedition 61 crew portrait (images.nasa.gov, nasa_id
+// jsc2019e022584_alt) — three clear frontal faces, ~190KB. Used as a
+// zero-friction "try it" sample before the user uploads their own photo.
+const SAMPLE_IMAGE_URL = '/sample-group.jpg';
 
 interface ImageUploaderProps {
   onImageLoad: (image: HTMLImageElement, fileSize?: number) => void;
@@ -10,20 +16,21 @@ interface ImageUploaderProps {
 }
 
 export default function ImageUploader({ onImageLoad, onError, disabled }: ImageUploaderProps) {
+  const { t } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFile = useCallback(
     (file: File) => {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        onError?.('🖼️ 只支持图片文件，请重新选择');
+        onError?.(t.toasts.unsupportedFileType);
         return;
       }
 
       // Validate file size (max 20MB)
       const maxSize = 20 * 1024 * 1024;
       if (file.size > maxSize) {
-        onError?.('📦 图片超过 20MB，请压缩后再试');
+        onError?.(t.toasts.fileTooLarge);
         return;
       }
 
@@ -37,11 +44,11 @@ export default function ImageUploader({ onImageLoad, onError, disabled }: ImageU
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        onError?.('😵 图片加载失败，请尝试其他图片');
+        onError?.(t.toasts.imageLoadFailed);
       };
       img.src = url;
     },
-    [onImageLoad, onError]
+    [onImageLoad, onError, t]
   );
 
   const handleDrop = useCallback(
@@ -82,6 +89,24 @@ export default function ImageUploader({ onImageLoad, onError, disabled }: ImageU
     [handleFile]
   );
 
+  const handleSampleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (disabled) return;
+
+      const img = new Image();
+      img.onload = () => {
+        onImageLoad(img);
+      };
+      img.onerror = () => {
+        onError?.(t.toasts.sampleLoadFailed);
+      };
+      img.src = SAMPLE_IMAGE_URL;
+    },
+    [disabled, onImageLoad, onError, t]
+  );
+
   return (
     <m.div
       initial={{ opacity: 0, y: 20 }}
@@ -118,19 +143,30 @@ export default function ImageUploader({ onImageLoad, onError, disabled }: ImageU
           {/* Text */}
           <div>
             <p className="text-2xl md:text-3xl font-black text-gray-800 dark:text-gray-100 mb-1">
-              {isDragging ? '松开上传' : '上传图片'}
+              {isDragging ? t.uploader.titleDragging : t.uploader.title}
             </p>
             <p className="text-base md:text-lg font-bold text-gray-600 dark:text-gray-300 mt-1">
-              点击选择或拖拽图片到此处
+              {t.uploader.subtitle}
             </p>
             <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
-              支持 JPG、PNG、WEBP 格式（最大 20MB）
+              {t.uploader.formats}
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 font-medium">
-              📱 移动设备可直接调用相机或相册
+              {t.uploader.mobileHint}
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="mt-3 flex justify-center">
+        <button
+          type="button"
+          onClick={handleSampleClick}
+          disabled={disabled}
+          className="relative z-10 text-sm px-3 py-1.5 btn-duo btn-ghost disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {t.uploader.sampleButton}
+        </button>
       </div>
     </m.div>
   );

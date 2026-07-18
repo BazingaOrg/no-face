@@ -12,6 +12,7 @@ import {
 
 import { useFaceBadgeLayout } from '@/hooks/useFaceBadgeLayout';
 import { useFrameDebouncedCallback } from '@/hooks/useFrameDebouncedCallback';
+import { useI18n } from '@/lib/i18n';
 
 interface FaceCanvasProps {
   image: HTMLImageElement | null;
@@ -34,6 +35,11 @@ interface FaceCanvasProps {
 // CSS-pixel movement threshold before a pointer-down on the active emoji
 // counts as a drag rather than a tap (which still applies the selected emoji)
 const DRAG_THRESHOLD_PX = 4;
+
+// Screen-space (CSS px) distance below which two face badges are considered
+// crowded — they'd otherwise overlap or sit edge-to-edge, so both collapse
+// to small dots until hovered/active.
+const BADGE_CROWD_DISTANCE_PX = 90;
 
 // Scale bounds, matching the inspector's slider (components/EmojiInspector.tsx)
 const MIN_EMOJI_SCALE = 0.5;
@@ -85,6 +91,7 @@ export default function FaceCanvas({
   onRepositionActiveEmoji,
   onBeginDragReposition,
 }: FaceCanvasProps) {
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // Offscreen canvas holding the pre-rendered base image; rebuilt only when
@@ -112,6 +119,30 @@ export default function FaceCanvas({
     faces.forEach((face) => map.set(face.id, face));
     return map;
   }, [faces]);
+
+  // Faces whose badges sit close enough on screen to crowd each other —
+  // those collapse to small dots by default, expanding on hover/active.
+  const crowdedFaceIds = useMemo(() => {
+    const crowded = new Set<string>();
+    for (let i = 0; i < faces.length; i++) {
+      for (let j = i + 1; j < faces.length; j++) {
+        const a = faces[i].box;
+        const b = faces[j].box;
+        const ax = (a.x + a.width / 2) * scale;
+        const ay = a.y * scale;
+        const bx = (b.x + b.width / 2) * scale;
+        const by = b.y * scale;
+        const distance = Math.hypot(ax - bx, ay - by);
+        if (distance < BADGE_CROWD_DISTANCE_PX) {
+          crowded.add(faces[i].id);
+          crowded.add(faces[j].id);
+        }
+      }
+    }
+    return crowded;
+  }, [faces, scale]);
+
+  const [hoveredBadgeId, setHoveredBadgeId] = useState<string | null>(null);
 
   // Calculate canvas dimensions and scale; re-fit on container resize
   useEffect(() => {
@@ -568,10 +599,17 @@ export default function FaceCanvas({
             {faces.map((face, index) => {
               const hasReplacement = replacementMap.has(face.id);
               const isActive = activeReplacementId === face.id;
+              const isHovered = hoveredBadgeId === face.id;
+              // Crowded badges collapse to a dot until hovered/focused/active,
+              // so overlapping faces don't produce an illegible pile of pills.
+              const isCollapsed = crowdedFaceIds.has(face.id) && !isActive && !isHovered;
               const position = getBadgePosition(face);
 
               const badgeBaseClass =
-                'pointer-events-auto absolute inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold shadow-sm transition-all backdrop-blur-md border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70';
+                'pointer-events-auto absolute inline-flex items-center justify-center gap-2 rounded-full shadow-sm transition-all backdrop-blur-md border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70';
+              const badgeSizeClass = isCollapsed
+                ? 'w-3 h-3 p-0 text-[0px]'
+                : 'px-3.5 py-1.5 text-xs font-bold';
               const badgeVisualClass = isActive
                 ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white border-transparent shadow-[0_12px_24px_-14px_rgba(249,115,22,0.9)]'
                 : hasReplacement
@@ -588,15 +626,24 @@ export default function FaceCanvas({
                     event.stopPropagation();
                     onInspectFace(face.id);
                   }}
-                  className={`${badgeBaseClass} ${badgeVisualClass}`}
+                  onMouseEnter={() => setHoveredBadgeId(face.id)}
+                  onMouseLeave={() => setHoveredBadgeId((current) => (current === face.id ? null : current))}
+                  onFocus={() => setHoveredBadgeId(face.id)}
+                  onBlur={() => setHoveredBadgeId((current) => (current === face.id ? null : current))}
+                  className={`${badgeBaseClass} ${badgeSizeClass} ${badgeVisualClass}`}
                   style={{
                     top: position.top,
                     left: position.left,
                   }}
-                  title={hasReplacement ? '微调当前表情' : '先替换后再微调'}
+                  title={hasReplacement ? t.badges.adjustTip : t.badges.replaceFirstTip}
+                  aria-label={t.badges.faceAria(index + 1, hasReplacement)}
                 >
-                  <span>第 {index + 1} 张脸</span>
-                  {hasReplacement && <span aria-hidden>⚙️</span>}
+                  {!isCollapsed && (
+                    <>
+                      <span>{t.badges.faceLabel(index + 1)}</span>
+                      {hasReplacement && <span aria-hidden>⚙️</span>}
+                    </>
+                  )}
                 </button>
               );
             })}

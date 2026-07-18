@@ -1,6 +1,6 @@
 # 性能与模型选型优化方案（取代 ROADMAP.md）
 
-> 状态：✅ Phase 1–3 及 Phase 4 代码项已完成（2026-07-18）；剩余：真机兼容性测试、实时摄像头、i18n
+> 状态：✅ Phase 1–3 及 Phase 4 代码项（含 i18n）已完成（2026-07-18）；剩余：真机兼容性测试、实时摄像头
 > 本文档取代 `ROADMAP.md`，是项目待办事项的唯一来源。
 > 依据：2026-07-17 工程审计（模型选型 / 代码性能 / 加载与缓存三方面）。
 
@@ -69,7 +69,7 @@
 - [ ] **浏览器兼容性测试**：iOS Safari 重点，其次 Firefox、Android Chrome
 - [x] **捏合/滚动缩放**：对当前 inspected face 独立缩放（touch pinch + wheel）
 - [ ] **实时摄像头模式**：规范见 `docs/real-time-camera.md`；Phase 3.1 已完成，前提性能基础（Worker 化检测）已就绪，可排期
-- [ ] **i18n 完整翻译**：UI 文案抽离 + 英文版
+- [x] **i18n 完整翻译**：UI 文案抽离 + 英文版（2026-07-18 完成，见下方实施说明）
 
 另有 UI/UX 评审遗留小项见 `docs/ui-ux-copy-review.md` 头部待做清单，随手修复即可，不单独排期。
 
@@ -106,8 +106,24 @@ Phase 2（2.1-2.5）已完成：
 
 **首包体积对比**（`next build`，`/` 路由）：Phase 1 完成时基线 First Load JS 226 kB → Phase 2 完成后 196 kB（shared-by-all 102 kB）；本次 2.5 + 捏合/滚动缩放实施后 `next build` 仍为 196 kB（无新增依赖，纯逻辑扩展）。
 
+### i18n（Phase 4）
+
+- 新建 `lib/i18n/`：`zh.ts`（约 90 个叶子键的嵌套字典，含若干 `(n) => string` / `(n, total) => string` 插值函数字段）、`en.ts`（`typeof zh` 约束，键完全对齐）、`index.tsx`（`LanguageProvider` + `useI18n()`）。不引入第三方 i18n 库，按需求文档的架构原样落地。
+- 初始语言判定：`localStorage['no-face-lang']` 优先，否则按 `navigator.language` 是否以 `zh` 开头选择；`LanguageProvider` 为避免 SSR/首次客户端渲染的 hydration mismatch，state 初始值固定为 `'zh'`，真正的探测在 `useEffect` 里异步纠正——这意味着非中文浏览器会有一帧中文闪烁，评估为可接受（避免了 hydration warning 这个更明显的问题）。切换时把选择写回 localStorage 并同步 `document.documentElement.lang`（`zh-CN` / `en`）。
+- 语言切换入口：`app/page.tsx` 头部新增一个绝对定位的小圆角按钮（`t.languageToggle.switchToLabel`，显示"要切换到的目标语言"），风格与现有卡片按钮一致，不单独起新的视觉系统。
+- 组件改造范围：`app/page.tsx`、`components/{ImageUploader,FaceCanvas,EmojiSelector,EmojiInspector,SettingsPanel,ModelLoadingModal}.tsx`、`hooks/useInspectorActions.ts` 全部改为 `const { t } = useI18n()` 后属性访问；`ProcessingOverlay.tsx`/`Toast.tsx`/`ServiceWorkerRegistration.tsx` 本身不含硬编码文案（文案通过 props 传入），未改动。
+- `app/layout.tsx` 用 `LanguageProvider` 包裹 `body` 内容（`LazyMotion` 和 `ServiceWorkerRegistration` 都在其内），`<html lang="zh-CN">` 与 `metadata`（SEO 标题/描述/OG）保持原样不动——按需求，站点主语言不随内部切换器改变。
+- 保留中文、未纳入字典的位置：
+  - `lib/emojiSearch.ts` 的 `EMOJI_KEYWORDS_ZH`（及其数据/注释）：按需求明确排除，两种语言下都保留中文关键词搜索能力；`EmojiSelector.tsx` 的主搜索框 placeholder 在英文模式下改为提示"展开完整表情库可用英文搜索"。
+  - `app/layout.tsx` 的 `metadata`（title/description/OG）：SEO 主语言不变，按需求保留。
+  - `app/page.tsx` 里的品牌字符“カオナシ”（logo alt、footer 品牌角标）：片假名，不在中文 `[一-龥]` grep 范围内，也不属于"UI 文案"，视为品牌标识不做翻译；`header.title` 键本身已做了本地化（zh: `カオナシ`，en: `No Face`，用于页面主标题 `<h1>`）。
+  - `console.error(...)` 的首个字符串参数（如原来的"模型加载失败:"）：这是开发者可见的调试日志，不是用户可见文案，本次顺手改成了英文字面量，不进字典。
+- 检查结果：`npx next lint` 无警告、`npx tsc --noEmit` 无错误、`npx vitest run` 25/25 通过、`npx next build` 成功（First Load JS 200 kB，较 i18n 前的 196 kB 增加约 4 kB，即两份字典 + Context 的体积）；`grep -rn '[一-龥]' app/ components/ hooks/ lib/i18n` 仅命中上述已说明的保留项（`app/layout.tsx` 的 metadata 与 `lib/i18n/en.ts` 里"切换到中文"按钮的 `中` 字面量）。
+- 分派：本轮按用户要求由执行者直接实现（未委派 fast-worker/qa-runner）。
+
 ## 评审记录
 
+- 2026-07-18 qa-runner 独立验证 UI 评审小项 + i18n：lint / tsc / vitest 25/25 / build（First Load JS 200 kB，i18n 字典 +4 kB）全绿；A 批（ProcessingOverlay 精简、示例图、全窗口拖拽、Inspector ResizeObserver padding、badge 密集态）5/5 通过；B 批（字典类型约束、语言初始化/持久化/documentElement.lang 同步、无硬编码中文残留、10 键翻译抽查无直译腔、新增文案全走 i18n）通过。qa-runner 标记 zh 字典标题为日文 `カオナシ`——判定为非问题：这是产品品牌名（迁移前中文界面主标题即如此），有意保留，仅英文版用 "No Face"。
 - 2026-07-18 qa-runner 独立验证 2.5 + 捏合/滚动缩放：lint / tsc / vitest 25/25 / build（First Load JS 196 kB）全绿；静态核对（预热走 requestIdleCallback + 静默失败 + SW 对 jsdelivr 的 cacheFirst 在位；wheel 用非 passive 原生监听且有清理、缩放 clamp 0.5–2.0 与 inspector 一致、历史 coalescing 正确——wheel 按 400ms 分段、捏合在第二指落下时各推一次、拖拽/捏合状态互不污染、均只作用于 activeReplacementId）全部通过，CLAUDE.md 描述与实现一致。
 - 2026-07-18 qa-runner 独立验证 Phase 3.1（MediaPipe 迁移）：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 196 kB 持平——移除 face-api+tfjs 与新增 tasks-vision glue 大致相抵，Worker 代码在独立按需 chunk）；静态核对（face-api 零残留、新资产完整：.task 1.08MB + wasm 4 文件约 21MB、GPU→CPU 回退与 close() 释放在位、DetectionSettings 仅剩 minConfidence、CSP 收紧为 wasm-unsafe-eval、SW v3 含 /mediapipe/ 路由、三份文档已更新）全部通过。一处与设计文档的语义差异：minConfidence 过滤实际放在 Worker 侧（设计写的是主线程侧），结果等价且"滑杆免重建 detector 即时生效"的目标同样达成，接受该偏差。真机（尤其 iOS Safari）未验证，归入 Phase 4 兼容性测试。
 - 2026-07-18 qa-runner 独立验证 Phase 2：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 196 kB，shared 102 kB）；静态核对（10 处 framer-motion 导入串完好、无 `motion.*` 残留、layout 的 LazyMotion+domMax+strict 就位、FaceCanvas 主绘制路径只 blit 离屏 canvas、伪进度与 percentage 字段无残留、emojiSettings 判空早退在位）全部通过。实施插曲：fast-worker 的一次正则替换曾把 import 串损坏为 `'framer-m'`，当场修复，验证确认无残留。

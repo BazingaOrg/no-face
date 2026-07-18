@@ -173,6 +173,16 @@ The settings panel uses a **unified card-style design** (v0.2.0):
 - Content expands/collapses smoothly with Framer Motion
 - Matches Duolingo-inspired design language
 
+### i18n
+
+UI copy is centralized in `lib/i18n/` — no i18n library, just two typed dictionaries and a context:
+- `lib/i18n/zh.ts` / `lib/i18n/en.ts`: nested plain-object dictionaries of all user-visible strings. `en.ts` is typed as `typeof zh` so a missing/extra key is a compile error; interpolated strings (e.g. "X/Y 张脸已替换") are function fields like `(n, total) => string`, not template placeholders.
+- `lib/i18n/index.tsx`: `LanguageProvider` (wraps the app in `app/layout.tsx`) + `useI18n()` hook returning `{ t, lang, setLang }`. Initial language: `localStorage['no-face-lang']` if set, else `zh` when `navigator.language` starts with `zh`, else `en`. `setLang` persists to localStorage and syncs `document.documentElement.lang`. Starts as `'zh'` on the server and first client render to avoid a hydration mismatch, then re-detects in a `useEffect`.
+- Usage: `const { t } = useI18n()` then direct property access, e.g. `t.uploader.dragHint`, `t.status.facesDetected(faces.length)`.
+- The language toggle lives in the page header (`app/page.tsx`), a small zh/EN pill button.
+- `app/layout.tsx`'s `<html lang>` and SEO `metadata` stay `zh-CN` — the primary SEO language doesn't change with the in-app toggle.
+- Out of scope: `lib/emojiSearch.ts`'s Chinese keyword search (`EMOJI_KEYWORDS_ZH`) is unaffected — it keeps working in both languages; only the search input's placeholder text is localized.
+
 ### Emoji Selector
 
 - Opening "🎨 选择表情" shows a Chinese-searchable grid over the curated pool first (`lib/emojiSearch.ts`'s `searchCuratedEmojis`, matched against hand-written keywords in `EMOJI_KEYWORDS_ZH`) — `emoji-picker-react` has no API to add aliases to its bundled Unicode dataset, so Chinese search only covers this curated set, not the full picker
