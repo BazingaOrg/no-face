@@ -48,7 +48,7 @@
 - [x] **2.4 移除 `simulateProgressiveLoading` 伪进度条**
   - 位置：`lib/faceApi.ts:81-129`；ModelLoadingModal 改为不确定态进度
   - 分派：fast-worker
-- [ ] **2.5（可选）预缓 `POPULAR_EMOJIS` 的 Twemoji SVG，常用表情离线可用**
+- [x] **2.5（可选）预缓 `POPULAR_EMOJIS` 的 Twemoji SVG，常用表情离线可用**
   - 位置：`public/sw.js`、`components/EmojiSelector.tsx` 的 POPULAR_EMOJIS 列表
   - 分派：fast-worker
 
@@ -67,7 +67,7 @@
 仅保留仍有明确价值的条目，其余（预设样式包、人脸识别实验、社交分享、协作模式、商业化等）已裁撤：
 
 - [ ] **浏览器兼容性测试**：iOS Safari 重点，其次 Firefox、Android Chrome
-- [ ] **捏合/滚动缩放**：对当前 inspected face 独立缩放（touch pinch + wheel）
+- [x] **捏合/滚动缩放**：对当前 inspected face 独立缩放（touch pinch + wheel）
 - [ ] **实时摄像头模式**：规范见 `docs/real-time-camera.md`；Phase 3.1 已完成，前提性能基础（Worker 化检测）已就绪，可排期
 - [ ] **i18n 完整翻译**：UI 文案抽离 + 英文版
 
@@ -88,17 +88,27 @@ Phase 1（1.1-1.4）已完成：
 
 ### Phase 2
 
-Phase 2（2.1-2.4）已完成（2.5 保留未做，仍是可选项）：
+Phase 2（2.1-2.5）已完成：
 
 - **2.1**：`components/FaceCanvas.tsx` 新增 `offscreenCanvasRef`（一个持久复用的 detached `<canvas>`）和 `offscreenKeyRef`（记录上次构建时的 `image.src + 物理像素尺寸`）。draw effect 里原来每次都跑的 `ctx.drawImage(image, 0, 0, canvasSize.width, canvasSize.height)` 拆成两步：先判断 offscreen key 是否变化（图片或 DPR 尺寸变了才重建），只有变化时才重新在 offscreen canvas 上以同样的 `setTransform(dpr,...) + drawImage` 画一次；主 canvas 则永远走 `ctx.drawImage(offscreen, 0, 0, canvasSize.width, canvasSize.height)`。选择把 offscreen canvas 也建成 DPR 物理像素尺寸（而不是纯 CSS 像素、无变换）的原因：两边都套用同一个 dpr 缩放，净变换相互抵消，数学上与原先直接画等价，且不需要额外维护一套"CSS px offscreen"的缩放逻辑，改动面最小。人脸框、勾选标记、emoji 层仍在同一个 effect 里每次全量重绘（它们依赖 faces/replacements/scale/activeReplacementId，这些确实逐帧变化）；backing-store 尺寸判断、`cancelled` 异步取消、ResizeObserver 逻辑均未改动。
 - **2.2**：`app/layout.tsx` 根节点用 `<LazyMotion features={domMax} strict>` 包裹 `{children}`（`domMax` 而非 `domAnimation`，因为 `app/page.tsx` 用到了 `layout` prop 和 `useDragControls`/drag，这两个特性只在 `domMax` 里）；因此本次 code-splitting 收益小于纯 `domAnimation` 方案，但仍比未拆分的 framer-motion 全量体积小。`strict` 模式要求全树 `motion.*` 换成 `m.*`，已对 9 个使用文件（`app/page.tsx`、`components/{FaceCanvas,ProcessingOverlay,ImageUploader,EmojiInspector,SettingsPanel,Toast,ModelLoadingModal,EmojiSelector}.tsx`）做了导入和 JSX 用法的全量替换，`AnimatePresence`/`MotionConfig`/`useDragControls`/`PanInfo` 保持原样（不受 LazyMotion 门控）。`layout.tsx` 未加 `'use client'`——`LazyMotion` 本身是 framer-motion 内部的客户端组件，作为 Server Component 的子边界可以直接用，构建验证通过无需改动。
 - **2.3**：`app/page.tsx` 的 `emojiSettings` effect 在原有 `replacements.length === 0` 早退之后，新增 `if (!replacements.some((r) => !r.isCustom)) return;`，全部替换项都是自定义时直接跳过 `setReplacements`，避免无谓的全局重绘。
 - **2.4**：`lib/faceApi.ts` 删除了 `simulateProgressiveLoading` 整个函数（含 `setInterval` 伪造进度曲线的逻辑）。`loadSSDModel()` 和 `loadTinyModel(false)` 分支改为直接 `await loadSpecificModel(...)`，在调用前后各给 `progressCallback` 发一次通知（`loaded: 0/total: 1` 开始态、`loaded: 1/total: 1` 完成态），不再携带虚构的百分比。`types/index.ts` 的 `ModelLoadingProgressCallback` 去掉 `percentage` 字段，`ModelLoadingState` 去掉 `progress` 字段——影响面只有 `app/page.tsx`（初始 state、progress 回调 setter、`ensureDetectorModelLoaded` 里两处 `setModelLoadingState`）和 `ModelLoadingModal.tsx`，改动量小，选择了干净移除而不是保留死字段。`ModelLoadingModal.tsx` 删除了"加载进度 / N%"文字行和进度条 `<m.div>`，保留旋转图标、模型名展示、标题文案和提示语，呈现为不确定态加载。detector 切换的 toast 提示流程、`isModelLoaded` 判断等原有状态机未改动。
 
-**首包体积对比**（`next build`，`/` 路由）：Phase 1 完成时基线 First Load JS 226 kB → Phase 2 完成后 196 kB（shared-by-all 102 kB）。
+- **2.5**：`components/ServiceWorkerRegistration.tsx` 在 `navigator.serviceWorker.register('/sw.js')` 成功后新增 `prefetchPopularEmojis()`，用 `requestIdleCallback`（无该 API 时降级 `setTimeout(…, 2000)`）对 `lib/emojiSearch.ts` 的 `CURATED_EMOJI_POOL`（`POPULAR_EMOJIS` 去重后的版本，避免重复请求同一 URL）逐个 `fetch(getTwemojiUrl(emoji))`，`.catch(() => {})` 静默吞掉失败。未改动 `public/sw.js` 的 `install`：确认其 `fetch` 处理器已经对 `TWEMOJI_ORIGIN`（`cdn.jsdelivr.net`）走 `cacheFirst`（3.1 迁移时就已加好，见 `sw.js:80-83`），所以这批预热请求会被现有运行时缓存自然收下，不需要新增专门的 CDN 路由或 bump `CACHE_VERSION`。这个预热请求发生在页面加载路径之外（`register().then()` 之后、idle 时机），不阻塞任何用户可感知的操作；若该次页面还未被 SW 接管（例如首次激活），fetch 会走普通网络请求而不进 CacheStorage，下次访问时该 SW 已激活并控制页面，重新触发的预热才会真正落盘——这是刻意接受的最简方案，代价是"离线可用"要等到第二次访问后才完全生效。
+
+### Phase 4（部分）
+
+- **捏合/滚动缩放**：`components/FaceCanvas.tsx` 新增两条独立的连续缩放输入，都复用现有 `onRepositionActiveEmoji`/`scheduleReposition`（帧防抖）与 `onBeginDragReposition` 回调，因此和拖拽重定位共享同一套 `isCustom: true` 语义与 inspector 滑杆实时联动；`onBeginDragReposition` 的 prop 注释同步更新为"也被 wheel/pinch 手势复用"，未新增 prop（未做到"每种手势一个专属 onBeginXxx"，判断没必要——三种手势要做的事完全一样：手势开始时推一次历史）。
+  - **wheel（桌面）**：命中测试复用已有的 `getActiveEmojiRect()` + 屏幕矩形判断（与 `handlePointerMove` 里悬停判断同一套逻辑）；每档 `WHEEL_SCALE_STEP = 0.05`（5%），`clampEmojiScale` 收敛到 `[0.5, 2.0]`，与 `EmojiInspector.tsx` 滑杆的 min/max 完全一致。**实现上有一处踩坑记录**：最初直接用 JSX 的 `onWheel` prop 调用 `e.preventDefault()`——React 17+ 为了对齐浏览器默认滚动性能，会把合成 `onWheel`/`onTouchMove` 监听器注册为 passive，导致 `preventDefault()` 被静默忽略、页面仍会跟着滚动。改为在 `useEffect` 里对 `canvasRef.current` 用原生 `addEventListener('wheel', handler, { passive: false })` 手动挂载/卸载，`e.preventDefault()` 才真正生效。手势 coalescing 用 `lastWheelTimeRef` 记录上次滚轮时间戳，间隔超过 `WHEEL_GESTURE_GAP_MS = 400ms` 才视为新手势并调用一次 `onBeginDragReposition`。
+  - **touch pinch（移动端）**：新增 `pointersRef`（`Map<pointerId, {x,y}>` 追踪当前落下的所有指针）和 `pinchStateRef`（`{ startDistance, baseScale }`）。`handlePointerDown` 里，当第二根手指落下（`pointersRef.size === 2`）时：若已有单指拖拽在进行（`dragStateRef.current` 非空），先释放其 pointer capture 并清空 `dragStateRef`（拖拽让位给捏合，不做"捏合结束后恢复拖拽"），再 `onBeginDragReposition?.()` 一次并记录 `pinchStateRef`（初始双指距离 + 当前 scale 作为基准）。`handlePointerMove` 里若 `pinchStateRef.current` 存在，按当前双指距离与初始距离的比例 `baseScale * (distance/startDistance)` 算出新 scale，`clampEmojiScale` 后走 `scheduleReposition`；单指拖拽的分支逻辑不变（仍走原有阈值判定）。`endDrag`（`onPointerUp`/`onPointerCancel`）改为先从 `pointersRef` 里移除该指针、指针数低于 2 时清空 `pinchStateRef`，再按原逻辑处理 `dragStateRef`（单指拖拽收尾）。
+  - 未做额外设置项（比如缩放灵敏度可配置），按计划要求最小化改动面。
+
+**首包体积对比**（`next build`，`/` 路由）：Phase 1 完成时基线 First Load JS 226 kB → Phase 2 完成后 196 kB（shared-by-all 102 kB）；本次 2.5 + 捏合/滚动缩放实施后 `next build` 仍为 196 kB（无新增依赖，纯逻辑扩展）。
 
 ## 评审记录
 
+- 2026-07-18 qa-runner 独立验证 2.5 + 捏合/滚动缩放：lint / tsc / vitest 25/25 / build（First Load JS 196 kB）全绿；静态核对（预热走 requestIdleCallback + 静默失败 + SW 对 jsdelivr 的 cacheFirst 在位；wheel 用非 passive 原生监听且有清理、缩放 clamp 0.5–2.0 与 inspector 一致、历史 coalescing 正确——wheel 按 400ms 分段、捏合在第二指落下时各推一次、拖拽/捏合状态互不污染、均只作用于 activeReplacementId）全部通过，CLAUDE.md 描述与实现一致。
 - 2026-07-18 qa-runner 独立验证 Phase 3.1（MediaPipe 迁移）：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 196 kB 持平——移除 face-api+tfjs 与新增 tasks-vision glue 大致相抵，Worker 代码在独立按需 chunk）；静态核对（face-api 零残留、新资产完整：.task 1.08MB + wasm 4 文件约 21MB、GPU→CPU 回退与 close() 释放在位、DetectionSettings 仅剩 minConfidence、CSP 收紧为 wasm-unsafe-eval、SW v3 含 /mediapipe/ 路由、三份文档已更新）全部通过。一处与设计文档的语义差异：minConfidence 过滤实际放在 Worker 侧（设计写的是主线程侧），结果等价且"滑杆免重建 detector 即时生效"的目标同样达成，接受该偏差。真机（尤其 iOS Safari）未验证，归入 Phase 4 兼容性测试。
 - 2026-07-18 qa-runner 独立验证 Phase 2：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 196 kB，shared 102 kB）；静态核对（10 处 framer-motion 导入串完好、无 `motion.*` 残留、layout 的 LazyMotion+domMax+strict 就位、FaceCanvas 主绘制路径只 blit 离屏 canvas、伪进度与 percentage 字段无残留、emojiSettings 判空早退在位）全部通过。实施插曲：fast-worker 的一次正则替换曾把 import 串损坏为 `'framer-m'`，当场修复，验证确认无残留。
 - 2026-07-17 qa-runner 独立验证 Phase 1：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 226 kB）、静态核对（landmark 无残留引用、SW APP_SHELL 无模型条目且 CACHE_VERSION=v2、默认检测器 tiny、模型按需加载）全部通过。

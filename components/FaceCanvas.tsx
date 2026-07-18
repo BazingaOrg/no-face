@@ -25,12 +25,28 @@ interface FaceCanvasProps {
   onRepositionActiveEmoji?: (patch: Partial<EmojiReplacement>) => void;
   // Called once, right when a drag first crosses the threshold — lets the
   // caller snapshot undo history before the first reposition patch lands.
+  // Also reused as the gesture-start hook for wheel/pinch zoom (see below):
+  // any of these continuous gestures must push history exactly once per
+  // gesture, not once per frame.
   onBeginDragReposition?: () => void;
 }
 
 // CSS-pixel movement threshold before a pointer-down on the active emoji
 // counts as a drag rather than a tap (which still applies the selected emoji)
 const DRAG_THRESHOLD_PX = 4;
+
+// Scale bounds, matching the inspector's slider (components/EmojiInspector.tsx)
+const MIN_EMOJI_SCALE = 0.5;
+const MAX_EMOJI_SCALE = 2.0;
+// Multiplicative step per wheel notch (~5%)
+const WHEEL_SCALE_STEP = 0.05;
+// A wheel "gesture" is a burst of notches; a gap longer than this starts a
+// new gesture, so pushHistory fires once per burst rather than per notch.
+const WHEEL_GESTURE_GAP_MS = 400;
+
+function clampEmojiScale(scale: number): number {
+  return Math.min(Math.max(scale, MIN_EMOJI_SCALE), MAX_EMOJI_SCALE);
+}
 
 interface DragState {
   pointerId: number;
@@ -284,8 +300,51 @@ export default function FaceCanvas({
   // pointerup is suppressed (a drag shouldn't also re-apply the emoji)
   const justDraggedRef = useRef(false);
 
+  // Active pointers on the canvas, keyed by pointerId — used to detect a
+  // second finger landing (pinch) while a drag is in progress.
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStateRef = useRef<{ startDistance: number; baseScale: number } | null>(null);
+  // Timestamp of the last wheel notch, so a burst of notches counts as one
+  // gesture (one pushHistory) rather than one per notch.
+  const lastWheelTimeRef = useRef(0);
+
+  const getActiveReplacementScale = useCallback(() => {
+    if (!activeReplacementId) return 1;
+    return replacementMap.get(activeReplacementId)?.scale ?? 1;
+  }, [activeReplacementId, replacementMap]);
+
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!onRepositionActiveEmoji || !activeReplacementId) return;
+
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // A second finger landing while one is already down starts a pinch —
+    // cancel any in-progress drag reposition and switch modes.
+    if (pointersRef.current.size === 2) {
+      const points = Array.from(pointersRef.current.values());
+      const startDistance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+      if (startDistance > 0) {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // ignore — pinch will just not track this pointer's capture
+        }
+        if (dragStateRef.current) {
+          if (e.currentTarget.hasPointerCapture(dragStateRef.current.pointerId)) {
+            e.currentTarget.releasePointerCapture(dragStateRef.current.pointerId);
+          }
+          dragStateRef.current = null;
+        }
+        onBeginDragReposition?.();
+        pinchStateRef.current = {
+          startDistance,
+          baseScale: getActiveReplacementScale(),
+        };
+      }
+      return;
+    }
+
+    if (pointersRef.current.size > 2) return;
 
     const rect = getActiveEmojiRect();
     if (!rect) return;
@@ -319,6 +378,19 @@ export default function FaceCanvas({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (pinchStateRef.current && pointersRef.current.size >= 2) {
+      const points = Array.from(pointersRef.current.values()).slice(0, 2);
+      const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+      const { startDistance, baseScale } = pinchStateRef.current;
+      const nextScale = clampEmojiScale(baseScale * (distance / startDistance));
+      scheduleReposition({ scale: nextScale });
+      return;
+    }
+
     const drag = dragStateRef.current;
     if (!drag || drag.pointerId !== e.pointerId) {
       // Not dragging: show a grab cursor when hovering the draggable emoji
@@ -356,6 +428,16 @@ export default function FaceCanvas({
   };
 
   const endDrag = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(e.pointerId);
+
+    if (pinchStateRef.current && pointersRef.current.size < 2) {
+      pinchStateRef.current = null;
+    }
+
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+
     const drag = dragStateRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
 
@@ -363,11 +445,55 @@ export default function FaceCanvas({
       justDraggedRef.current = true;
       e.currentTarget.style.cursor = 'grab';
     }
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
     dragStateRef.current = null;
   };
+
+  // Wheel-to-zoom the active emoji. Attached as a native, non-passive
+  // listener (rather than the `onWheel` JSX prop) because React registers
+  // synthetic wheel handlers as passive by default — preventDefault() there
+  // is silently ignored, and page scroll wouldn't actually be blocked.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onCanvasWheel = (e: WheelEvent) => {
+      if (!onRepositionActiveEmoji || !activeReplacementId) return;
+
+      const rect = getActiveEmojiRect();
+      if (!rect) return;
+
+      const canvasRect = canvas.getBoundingClientRect();
+      const x = e.clientX - canvasRect.left;
+      const y = e.clientY - canvasRect.top;
+      if (x < rect.x || x > rect.x + rect.width || y < rect.y || y > rect.y + rect.height) {
+        return;
+      }
+
+      e.preventDefault();
+
+      const now = performance.now();
+      if (now - lastWheelTimeRef.current > WHEEL_GESTURE_GAP_MS) {
+        onBeginDragReposition?.();
+      }
+      lastWheelTimeRef.current = now;
+
+      const direction = e.deltaY > 0 ? -1 : 1;
+      const nextScale = clampEmojiScale(
+        getActiveReplacementScale() * (1 + direction * WHEEL_SCALE_STEP)
+      );
+      scheduleReposition({ scale: nextScale });
+    };
+
+    canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onCanvasWheel);
+  }, [
+    onRepositionActiveEmoji,
+    activeReplacementId,
+    getActiveEmojiRect,
+    onBeginDragReposition,
+    getActiveReplacementScale,
+    scheduleReposition,
+  ]);
 
   // Handle canvas click to select face
   // No selected-emoji guard: the parent decides how to respond (e.g. prompt to pick one)
