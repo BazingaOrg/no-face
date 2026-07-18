@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DetectedFace, EmojiReplacement } from '@/types';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { drawEmojiReplacement, getEmojiScreenRect } from '@/lib/emojiRenderUtils';
 import {
   getLoadedEmojiImage,
@@ -71,6 +71,10 @@ export default function FaceCanvas({
 }: FaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Offscreen canvas holding the pre-rendered base image; rebuilt only when
+  // image/size/dpr change, not on every drag/slider frame.
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const offscreenKeyRef = useRef<string | null>(null);
   const [scale, setScale] = useState(1);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   // Bumped when an emoji image finishes loading so the draw effect re-runs
@@ -149,8 +153,33 @@ export default function FaceCanvas({
 
     ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
 
-    // 1. Draw original image
-    ctx.drawImage(image, 0, 0, canvasSize.width, canvasSize.height);
+    // 1. Draw the base image via a pre-rendered offscreen canvas. The
+    // offscreen canvas is sized to targetWidth x targetHeight physical
+    // (DPR-scaled) pixels and drawn with the same setTransform(dpr,...) +
+    // drawImage(image, 0, 0, canvasSize.width, canvasSize.height) that used
+    // to run inline here — so its pixel content is identical to what this
+    // effect drew directly before. Blitting it into the main ctx (also
+    // DPR-transformed) at the same CSS-pixel destination size reproduces
+    // that content 1:1: both sides apply the same dpr scale, so the net
+    // transform cancels out. This decouples the expensive image resample
+    // from per-frame drag/slider redraws — it's only rebuilt when
+    // image/size/dpr actually change (tracked via offscreenKeyRef).
+    const offscreenKey = `${image.src}|${targetWidth}x${targetHeight}`;
+    if (!offscreenCanvasRef.current) {
+      offscreenCanvasRef.current = document.createElement('canvas');
+    }
+    const offscreen = offscreenCanvasRef.current;
+    if (offscreenKeyRef.current !== offscreenKey || offscreen.width !== targetWidth || offscreen.height !== targetHeight) {
+      offscreen.width = targetWidth;
+      offscreen.height = targetHeight;
+      const offscreenCtx = offscreen.getContext('2d');
+      if (offscreenCtx) {
+        offscreenCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        offscreenCtx.drawImage(image, 0, 0, canvasSize.width, canvasSize.height);
+      }
+      offscreenKeyRef.current = offscreenKey;
+    }
+    ctx.drawImage(offscreen, 0, 0, canvasSize.width, canvasSize.height);
 
     // 2. Draw face boxes
     faces.forEach((face) => {
@@ -379,7 +408,7 @@ export default function FaceCanvas({
   }
 
   return (
-    <motion.div
+    <m.div
       ref={containerRef}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -448,6 +477,6 @@ export default function FaceCanvas({
           </div>
         )}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

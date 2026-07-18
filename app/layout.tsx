@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { LazyMotion, domMax } from "framer-motion";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
@@ -39,7 +40,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased">
-        {children}
+        <LazyMotion features={domMax} strict>
+          {children}
+        </LazyMotion>
         <ServiceWorkerRegistration />
       </body>
     </html>

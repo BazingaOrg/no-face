@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { DetectionSettings, EmojiSettings } from '@/types';
 
@@ -63,7 +63,7 @@ export default function SettingsPanel({
         }`}
       >
         {/* Settings toggle button as card header */}
-        <motion.button
+        <m.button
           onClick={onToggle}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
@@ -76,7 +76,7 @@ export default function SettingsPanel({
           <span className="flex items-center gap-2">
             ⚙️ 高级设置
           </span>
-          <motion.svg
+          <m.svg
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className="w-5 h-5"
@@ -90,11 +90,11 @@ export default function SettingsPanel({
               strokeWidth={3}
               d="M19 9l-7 7-7-7"
             />
-          </motion.svg>
-        </motion.button>
+          </m.svg>
+        </m.button>
 
         {/* Settings panel content as card body */}
-        <motion.div
+        <m.div
           initial={false}
           animate={{
             height: isOpen ? 'auto' : 0,
@@ -216,7 +216,7 @@ export default function SettingsPanel({
 
           {/* Reset to Defaults */}
           <div className="pt-4 border-t border-gray-200 dark:border-slate-700 flex justify-center">
-            <motion.button
+            <m.button
               onClick={() => {
                 onDetectionChange({
                   detector: 'tiny_face_detector',
@@ -235,10 +235,10 @@ export default function SettingsPanel({
               className="gradient-action btn-ghost"
             >
               🔄 恢复默认设置
-            </motion.button>
+            </m.button>
           </div>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );

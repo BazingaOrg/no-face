@@ -35,17 +35,17 @@
 
 ## Phase 2：中成本渲染与包体优化
 
-- [ ] **2.1 底图预渲染到离屏 canvas**
+- [x] **2.1 底图预渲染到离屏 canvas**
   - 位置：`components/FaceCanvas.tsx:126-233`（draw effect，`:153` 每帧整图 `drawImage`）
   - 拖拽/滑杆帧只 `drawImage(offscreen)` + 重绘 emoji 层
   - 分派：fast-worker → verify: qa-runner（拖拽流畅度 + 导出像素一致性）
-- [ ] **2.2 framer-motion 改 `LazyMotion` + `domAnimation`，或次要动画降级 CSS transition**
+- [x] **2.2 framer-motion 改 `LazyMotion` + `domAnimation`，或次要动画降级 CSS transition**
   - 位置：`app/page.tsx` 及各组件的 `motion.*` 用法
   - 分派：fast-worker → verify: qa-runner（`bun run build` 对比首包体积）
-- [ ] **2.3 `emojiSettings` effect 先判断有无非 custom 项再 setState**
+- [x] **2.3 `emojiSettings` effect 先判断有无非 custom 项再 setState**
   - 位置：`app/page.tsx:325-344`；省一次无谓的全局重绘
   - 分派：fast-worker
-- [ ] **2.4 移除 `simulateProgressiveLoading` 伪进度条**
+- [x] **2.4 移除 `simulateProgressiveLoading` 伪进度条**
   - 位置：`lib/faceApi.ts:81-129`；ModelLoadingModal 改为不确定态进度
   - 分派：fast-worker
 - [ ] **2.5（可选）预缓 `POPULAR_EMOJIS` 的 Twemoji SVG，常用表情离线可用**
@@ -85,7 +85,19 @@ Phase 1（1.1-1.4）已完成：
 
 无实质性偏离计划的地方；`inputSize: 416` 是跟随现有 SettingsPanel 里"切到 Tiny 时自动设 416（均衡模式）"的既有约定，为保持默认状态与用户手动切换后的状态一致而在默认值里一并写上。
 
+### Phase 2
+
+Phase 2（2.1-2.4）已完成（2.5 保留未做，仍是可选项）：
+
+- **2.1**：`components/FaceCanvas.tsx` 新增 `offscreenCanvasRef`（一个持久复用的 detached `<canvas>`）和 `offscreenKeyRef`（记录上次构建时的 `image.src + 物理像素尺寸`）。draw effect 里原来每次都跑的 `ctx.drawImage(image, 0, 0, canvasSize.width, canvasSize.height)` 拆成两步：先判断 offscreen key 是否变化（图片或 DPR 尺寸变了才重建），只有变化时才重新在 offscreen canvas 上以同样的 `setTransform(dpr,...) + drawImage` 画一次；主 canvas 则永远走 `ctx.drawImage(offscreen, 0, 0, canvasSize.width, canvasSize.height)`。选择把 offscreen canvas 也建成 DPR 物理像素尺寸（而不是纯 CSS 像素、无变换）的原因：两边都套用同一个 dpr 缩放，净变换相互抵消，数学上与原先直接画等价，且不需要额外维护一套"CSS px offscreen"的缩放逻辑，改动面最小。人脸框、勾选标记、emoji 层仍在同一个 effect 里每次全量重绘（它们依赖 faces/replacements/scale/activeReplacementId，这些确实逐帧变化）；backing-store 尺寸判断、`cancelled` 异步取消、ResizeObserver 逻辑均未改动。
+- **2.2**：`app/layout.tsx` 根节点用 `<LazyMotion features={domMax} strict>` 包裹 `{children}`（`domMax` 而非 `domAnimation`，因为 `app/page.tsx` 用到了 `layout` prop 和 `useDragControls`/drag，这两个特性只在 `domMax` 里）；因此本次 code-splitting 收益小于纯 `domAnimation` 方案，但仍比未拆分的 framer-motion 全量体积小。`strict` 模式要求全树 `motion.*` 换成 `m.*`，已对 9 个使用文件（`app/page.tsx`、`components/{FaceCanvas,ProcessingOverlay,ImageUploader,EmojiInspector,SettingsPanel,Toast,ModelLoadingModal,EmojiSelector}.tsx`）做了导入和 JSX 用法的全量替换，`AnimatePresence`/`MotionConfig`/`useDragControls`/`PanInfo` 保持原样（不受 LazyMotion 门控）。`layout.tsx` 未加 `'use client'`——`LazyMotion` 本身是 framer-motion 内部的客户端组件，作为 Server Component 的子边界可以直接用，构建验证通过无需改动。
+- **2.3**：`app/page.tsx` 的 `emojiSettings` effect 在原有 `replacements.length === 0` 早退之后，新增 `if (!replacements.some((r) => !r.isCustom)) return;`，全部替换项都是自定义时直接跳过 `setReplacements`，避免无谓的全局重绘。
+- **2.4**：`lib/faceApi.ts` 删除了 `simulateProgressiveLoading` 整个函数（含 `setInterval` 伪造进度曲线的逻辑）。`loadSSDModel()` 和 `loadTinyModel(false)` 分支改为直接 `await loadSpecificModel(...)`，在调用前后各给 `progressCallback` 发一次通知（`loaded: 0/total: 1` 开始态、`loaded: 1/total: 1` 完成态），不再携带虚构的百分比。`types/index.ts` 的 `ModelLoadingProgressCallback` 去掉 `percentage` 字段，`ModelLoadingState` 去掉 `progress` 字段——影响面只有 `app/page.tsx`（初始 state、progress 回调 setter、`ensureDetectorModelLoaded` 里两处 `setModelLoadingState`）和 `ModelLoadingModal.tsx`，改动量小，选择了干净移除而不是保留死字段。`ModelLoadingModal.tsx` 删除了"加载进度 / N%"文字行和进度条 `<m.div>`，保留旋转图标、模型名展示、标题文案和提示语，呈现为不确定态加载。detector 切换的 toast 提示流程、`isModelLoaded` 判断等原有状态机未改动。
+
+**首包体积对比**（`next build`，`/` 路由）：Phase 1 完成时基线 First Load JS 226 kB → Phase 2 完成后 196 kB（shared-by-all 102 kB）。
+
 ## 评审记录
 
+- 2026-07-18 qa-runner 独立验证 Phase 2：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 196 kB，shared 102 kB）；静态核对（10 处 framer-motion 导入串完好、无 `motion.*` 残留、layout 的 LazyMotion+domMax+strict 就位、FaceCanvas 主绘制路径只 blit 离屏 canvas、伪进度与 percentage 字段无残留、emojiSettings 判空早退在位）全部通过。实施插曲：fast-worker 的一次正则替换曾把 import 串损坏为 `'framer-m'`，当场修复，验证确认无残留。
 - 2026-07-17 qa-runner 独立验证 Phase 1：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 226 kB）、静态核对（landmark 无残留引用、SW APP_SHELL 无模型条目且 CACHE_VERSION=v2、默认检测器 tiny、模型按需加载）全部通过。
 - 实施插曲：fast-worker 曾误删 AGENTS.md/CLAUDE.md/ROADMAP.md 并用 `git checkout HEAD` 恢复，导致已被有意删除的 ROADMAP.md 复活；编排层已重新删除并同步更新了 CLAUDE.md/AGENTS.md/README.md 中的 ROADMAP 引用（指向本文档）。

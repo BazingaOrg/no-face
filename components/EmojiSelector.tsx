@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { searchCuratedEmojis, POPULAR_EMOJIS, CURATED_EMOJI_POOL } from '@/lib/emojiSearch';
 
 interface EmojiSelectorProps {
@@ -52,7 +52,7 @@ export default function EmojiSelector({
       {/* Button group with emoji selector and random button */}
       <div className="flex items-center gap-3 justify-center">
         {/* Emoji selector button - Duolingo Style */}
-        <motion.button
+        <m.button
           onClick={onToggle}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -81,10 +81,10 @@ export default function EmojiSelector({
               d="M19 9l-7 7-7-7"
             />
           </svg>
-        </motion.button>
+        </m.button>
 
         {/* Random emoji button */}
-        <motion.button
+        <m.button
           onClick={handleRandomEmoji}
           whileHover={{ scale: 1.05, rotate: 180 }}
           whileTap={{ scale: 0.95 }}
@@ -92,7 +92,7 @@ export default function EmojiSelector({
           title="随机表情"
         >
           🎲
-        </motion.button>
+        </m.button>
       </div>
 
       {/* Emoji picker - Chinese search over the curated set by default;
@@ -100,7 +100,7 @@ export default function EmojiSelector({
           behind an explicit toggle */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, height: 0, y: -20 }}
             animate={{ opacity: 1, height: 'auto', y: 0 }}
             exit={{ opacity: 0, height: 0, y: -20 }}
@@ -158,13 +158,13 @@ export default function EmojiSelector({
                 />
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {/* Instruction text - Dynamic based on state */}
       {!isOpen && (
-        <motion.p
+        <m.p
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center text-base font-bold text-gray-700 dark:text-gray-300 mt-2"
@@ -179,7 +179,7 @@ export default function EmojiSelector({
           ) : (
             `👆 继续点击其他人脸 (${replacedCount}/${totalFaces})`
           )}
-        </motion.p>
+        </m.p>
       )}
     </div>
   );

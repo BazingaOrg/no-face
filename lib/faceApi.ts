@@ -67,69 +67,16 @@ async function loadSpecificModel(modelName: 'ssdMobilenetv1' | 'tinyFaceDetector
 }
 
 /**
- * Simulate progressive loading with smooth progress updates
- * Creates a more natural loading experience
- */
-async function simulateProgressiveLoading(
-  modelName: string,
-  startProgress: number,
-  targetProgress: number,
-  actualLoadPromise: Promise<void>
-): Promise<void> {
-  let currentProgress = startProgress;
-  const progressIncrement = 2; // Increment by 2% each step
-  const updateInterval = 100; // Update every 100ms
-
-  // Start progress simulation
-  const progressInterval = setInterval(() => {
-    if (currentProgress < targetProgress - 5) {
-      // Slow down as we approach target (simulate real download curve)
-      const remaining = targetProgress - currentProgress;
-      const increment = Math.max(0.5, progressIncrement * (remaining / 30));
-      currentProgress = Math.min(currentProgress + increment, targetProgress - 5);
-
-      if (progressCallback) {
-        progressCallback({
-          model: modelName,
-          loaded: 0,
-          total: 1,
-          percentage: Math.round(currentProgress),
-        });
-      }
-    }
-  }, updateInterval);
-
-  try {
-    // Wait for actual model loading
-    await actualLoadPromise;
-
-    // Clear interval and jump to 100%
-    clearInterval(progressInterval);
-
-    if (progressCallback) {
-      progressCallback({
-        model: modelName,
-        loaded: 1,
-        total: 1,
-        percentage: targetProgress,
-      });
-    }
-  } catch (error) {
-    clearInterval(progressInterval);
-    throw error;
-  }
-}
-
-/**
  * Load SSD MobileNet V1 model (primary detector)
  */
 export async function loadSSDModel(): Promise<void> {
-  await simulateProgressiveLoading(
-    'ssdMobilenetv1',
-    0,
-    100,
-    loadSpecificModel('ssdMobilenetv1')
-  );
+  if (progressCallback) {
+    progressCallback({ model: 'ssdMobilenetv1', loaded: 0, total: 1 });
+  }
+  await loadSpecificModel('ssdMobilenetv1');
+  if (progressCallback) {
+    progressCallback({ model: 'ssdMobilenetv1', loaded: 1, total: 1 });
+  }
 }
 
 /**
@@ -140,13 +87,13 @@ export async function loadTinyModel(silent = false): Promise<void> {
     // Silent mode: load without progress updates
     await loadSpecificModel('tinyFaceDetector');
   } else {
-    // With progress simulation
-    await simulateProgressiveLoading(
-      'tinyFaceDetector',
-      0,
-      100,
-      loadSpecificModel('tinyFaceDetector')
-    );
+    if (progressCallback) {
+      progressCallback({ model: 'tinyFaceDetector', loaded: 0, total: 1 });
+    }
+    await loadSpecificModel('tinyFaceDetector');
+    if (progressCallback) {
+      progressCallback({ model: 'tinyFaceDetector', loaded: 1, total: 1 });
+    }
   }
 }
 

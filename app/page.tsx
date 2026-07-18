@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { motion, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
+import { m, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import NextImage from 'next/image';
 import ImageUploader from '@/components/ImageUploader';
@@ -62,7 +62,6 @@ export default function Home() {
   // so this starts idle instead of isLoading: true)
   const [modelLoadingState, setModelLoadingState] = useState<ModelLoadingState>({
     isLoading: false,
-    progress: 0,
     currentModel: '',
     loadedModels: [],
   });
@@ -253,7 +252,6 @@ export default function Home() {
     setModelLoadingProgressCallback((progress) => {
       setModelLoadingState({
         isLoading: true,
-        progress: progress.percentage,
         currentModel: progress.model,
         loadedModels: [],
       });
@@ -275,7 +273,6 @@ export default function Home() {
       }
       setModelLoadingState({
         isLoading: false,
-        progress: 100,
         currentModel: '',
         loadedModels: [modelName],
       });
@@ -331,6 +328,7 @@ export default function Home() {
   // must stay that way.
   useEffect(() => {
     if (replacements.length === 0) return;
+    if (!replacements.some((r) => !r.isCustom)) return;
 
     setReplacements((prev) =>
       prev.map((replacement) => {
@@ -714,13 +712,13 @@ export default function Home() {
         }}
       >
         {/* Header - Duolingo Style with Privacy Badge */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-6 flex flex-col items-center justify-center"
         >
           {/* Logo */}
-          <motion.div
+          <m.div
             animate={{ rotate: [0, -10, 10, -10, 0] }}
             transition={{ duration: 0.5, delay: 0.2 }}
             whileHover={{ scale: 1.05 }}
@@ -736,7 +734,7 @@ export default function Home() {
                 className="w-16 h-16 md:w-20 md:h-20 object-contain rounded-xl"
               />
             </div>
-          </motion.div>
+          </m.div>
 
           {/* Title */}
           <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight shimmer-text bg-clip-text">
@@ -744,7 +742,7 @@ export default function Home() {
           </h1>
 
           {/* Subtitle with privacy promise */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
@@ -756,14 +754,14 @@ export default function Home() {
             <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
               用 Emoji 隐藏照片里的脸，图片不会离开你的浏览器
             </p>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
 
         {/* Main content */}
         <div className="space-y-4">
           {/* Settings Panel - before upload, and again once faces are detected */}
           {(!image || faces.length > 0) && !isProcessing && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -775,7 +773,7 @@ export default function Home() {
                 isOpen={isSettingsPanelOpen}
                 onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
               />
-            </motion.div>
+            </m.div>
           )}
 
           {/* Image uploader */}
@@ -789,7 +787,7 @@ export default function Home() {
 
           {/* Canvas preview */}
           {image && !isProcessing && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -804,12 +802,12 @@ export default function Home() {
                 onRepositionActiveEmoji={handleInspectorUpdate}
                 onBeginDragReposition={pushHistory}
               />
-            </motion.div>
+            </m.div>
           )}
 
           {/* Status message - Error */}
           {image && error && (
-            <motion.div
+            <m.div
               role="alert"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -818,12 +816,12 @@ export default function Home() {
               <div className="text-4xl mb-2">⚠️</div>
               <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">提示</p>
               <p className="text-gray-600 dark:text-gray-300">{error}</p>
-            </motion.div>
+            </m.div>
           )}
 
           {/* Status message - Success with progress and secondary actions */}
           {image && faces.length > 0 && !isProcessing && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-sm p-3 text-center border-2 border-gray-300 dark:border-slate-600"
@@ -836,7 +834,7 @@ export default function Home() {
                 
                 {/* Replacement progress */}
                 {replacements.length > 0 && (
-                  <motion.div
+                  <m.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="text-sm font-bold"
@@ -850,13 +848,13 @@ export default function Home() {
                         ⏳ 已替换 <span className="text-gray-500 dark:text-gray-500 text-xs">({replacements.length}/{faces.length})</span>
                       </span>
                     )}
-                  </motion.div>
+                  </m.div>
                 )}
               </div>
 
               {/* Secondary action buttons */}
               <div className="flex flex-wrap gap-2 justify-center mt-3">
-                <motion.button
+                <m.button
                   onClick={handleUndo}
                   disabled={!canUndo}
                   whileHover={canUndo ? { scale: 1.02 } : {}}
@@ -865,8 +863,8 @@ export default function Home() {
                   title="撤销 (Ctrl/Cmd+Z)"
                 >
                   ↩️ 撤销
-                </motion.button>
-                <motion.button
+                </m.button>
+                <m.button
                   onClick={handleRedo}
                   disabled={!canRedo}
                   whileHover={canRedo ? { scale: 1.02 } : {}}
@@ -875,16 +873,16 @@ export default function Home() {
                   title="重做 (Ctrl/Cmd+Shift+Z)"
                 >
                   ↪️ 重做
-                </motion.button>
-                <motion.button
+                </m.button>
+                <m.button
                   onClick={handleRedetect}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="text-sm px-3 py-1.5 btn-duo btn-secondary"
                 >
                   🔄 重新检测
-                </motion.button>
-                <motion.button
+                </m.button>
+                <m.button
                   onClick={() => {
                     setImage(null);
                     setOptimizedImage(null);
@@ -901,14 +899,14 @@ export default function Home() {
                   className="text-sm px-3 py-1.5 btn-duo btn-ghost"
                 >
                   📤 换一张
-                </motion.button>
+                </m.button>
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {/* Emoji selector */}
           {image && faces.length > 0 && !isProcessing && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -921,17 +919,17 @@ export default function Home() {
                 replacedCount={replacements.length}
                 totalFaces={faces.length}
               />
-            </motion.div>
+            </m.div>
           )}
 
           {/* Action buttons - Duolingo Style */}
           {image && faces.length > 0 && !isProcessing && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex flex-wrap gap-2 md:gap-3 justify-center"
             >
-              <motion.button
+              <m.button
                 onClick={handleApplyToAll}
                 whileHover={selectedEmoji ? { scale: 1.05 } : {}}
                 whileTap={selectedEmoji ? { scale: 0.95 } : {}}
@@ -944,8 +942,8 @@ export default function Home() {
                 <span className="text-lg md:text-xl">⚡</span>
                 全部替换
                 {replacements.length > 0 && <span className="sr-only"> 已替换 {replacements.length} 项</span>}
-              </motion.button>
-              <motion.button
+              </m.button>
+              <m.button
                 onClick={handleReset}
                 whileHover={replacements.length > 0 ? { scale: 1.05 } : {}}
                 whileTap={replacements.length > 0 ? { scale: 0.95 } : {}}
@@ -957,8 +955,8 @@ export default function Home() {
               >
                 <span className="text-lg md:text-xl">♻️</span>
                 重置
-              </motion.button>
-              <motion.button
+              </m.button>
+              <m.button
                 onClick={handleExport}
                 whileHover={replacements.length > 0 ? { scale: 1.05 } : {}}
                 whileTap={replacements.length > 0 ? { scale: 0.95 } : {}}
@@ -970,14 +968,14 @@ export default function Home() {
               >
                 <span className="text-lg md:text-xl">📥</span>
                 下载图片
-              </motion.button>
-            </motion.div>
+              </m.button>
+            </m.div>
           )}
         </div>
       </div>
       <AnimatePresence>
         {activeReplacement && !isProcessing && (
-          <motion.div
+          <m.div
             key={activeReplacement.faceId}
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -989,7 +987,7 @@ export default function Home() {
             }}
             className="pointer-events-none fixed inset-x-0 bottom-0 z-40"
           >
-            <motion.div
+            <m.div
               className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5"
               drag="y"
               dragControls={inspectorDragControls}
@@ -1001,7 +999,7 @@ export default function Home() {
               onDragEnd={handleInspectorDragEnd}
               style={{ touchAction: 'none' }}
             >
-              <motion.button
+              <m.button
                 type="button"
                 layout
                 onPointerDown={handleInspectorHandlePointerDown}
@@ -1023,13 +1021,13 @@ export default function Home() {
                   className="bg-transparent border-none shadow-none p-5 md:p-6 space-y-5"
                 />
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {/* Footer - Duolingo Style */}
-      <motion.footer
+      <m.footer
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
@@ -1062,7 +1060,7 @@ export default function Home() {
         <p className="text-gray-500 dark:text-gray-500 text-xs">
           © {new Date().getFullYear()} All rights reserved.
         </p>
-      </motion.footer>
+      </m.footer>
     </div>
     </MotionConfig>
   );

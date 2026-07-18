@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { EmojiReplacement, EmojiSettings } from '@/types';
 import { useFrameDebouncedCallback } from '@/hooks/useFrameDebouncedCallback';
 
@@ -97,7 +97,7 @@ export default function EmojiInspector({
   );
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 16 }}
@@ -211,7 +211,7 @@ export default function EmojiInspector({
         <section className={`md:col-span-2 ${SECTION_CLASS}`}>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">翻转调整</h3>
           <div className="grid grid-cols-2 gap-3">
-            <motion.button
+            <m.button
               type="button"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -226,8 +226,8 @@ export default function EmojiInspector({
               }`}
             >
               ⬌ 水平翻转
-            </motion.button>
-            <motion.button
+            </m.button>
+            <m.button
               type="button"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -242,13 +242,13 @@ export default function EmojiInspector({
               }`}
             >
               ⬍ 垂直翻转
-            </motion.button>
+            </m.button>
           </div>
         </section>
       </div>
 
       <div className="flex flex-wrap justify-center gap-3">
-        <motion.button
+        <m.button
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -256,8 +256,8 @@ export default function EmojiInspector({
           className="gradient-action btn-ghost"
         >
           设为默认
-        </motion.button>
-        <motion.button
+        </m.button>
+        <m.button
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -265,8 +265,8 @@ export default function EmojiInspector({
           className="gradient-action btn-secondary"
         >
           全部应用
-        </motion.button>
-        <motion.button
+        </m.button>
+        <m.button
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -274,8 +274,8 @@ export default function EmojiInspector({
           className="gradient-action btn-ghost"
         >
           恢复默认值
-        </motion.button>
-        <motion.button
+        </m.button>
+        <m.button
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -283,8 +283,8 @@ export default function EmojiInspector({
           className="gradient-action btn-ghost"
         >
           完成
-        </motion.button>
+        </m.button>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

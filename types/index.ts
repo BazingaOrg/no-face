@@ -49,18 +49,16 @@ export interface EmojiSettings {
   flipY: boolean; // vertical flip
 }
 
-// Model loading progress callback
+// Model loading progress callback (indeterminate: no fabricated percentage)
 export type ModelLoadingProgressCallback = (progress: {
   model: string;
   loaded: number;
   total: number;
-  percentage: number;
 }) => void;
 
 // Model loading state
 export interface ModelLoadingState {
   isLoading: boolean;
-  progress: number;
   currentModel: string;
   loadedModels: string[];
 }
