@@ -123,7 +123,7 @@ export default function ImageUploader({ onImageLoad, onError, disabled }: ImageU
           relative bg-white dark:bg-slate-800 rounded-2xl p-8 text-center
           transition-all duration-200 cursor-pointer
           shadow-lg border-4 border-dashed
-          ${isDragging ? 'border-green-400 bg-green-50 dark:bg-green-900/20 scale-105 shadow-xl' : 'border-gray-300 dark:border-slate-600 hover:shadow-xl'}
+          ${isDragging ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 scale-105 shadow-xl' : 'border-gray-300 dark:border-slate-600 hover:shadow-xl'}
           ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         `}
       >
