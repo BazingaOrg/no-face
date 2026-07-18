@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { m, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
@@ -20,12 +20,11 @@ import {
   EmojiSettings,
   ModelLoadingState 
 } from '@/types';
-import { 
-  loadSSDModel,
-  loadTinyModel,
-  isModelLoaded,
-  setModelLoadingProgressCallback
-} from '@/lib/faceApi';
+import {
+  initFaceDetector,
+  disposeFaceDetector,
+  setFaceDetectorProgressCallback
+} from '@/lib/faceDetectorClient';
 import { preloadEmojiWithFallback } from '@/lib/twemoji';
 import { drawEmojiReplacement } from '@/lib/emojiRenderUtils';
 import { loadEmojiImage } from '@/lib/emojiImageCache';
@@ -58,12 +57,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [activeReplacementId, setActiveReplacementId] = useState<string | null>(null);
 
-  // Model loading state (loading is deferred to first upload / detector switch,
-  // so this starts idle instead of isLoading: true)
+  // Model loading state (loading is deferred to first upload, so this starts
+  // idle instead of isLoading: true)
   const [modelLoadingState, setModelLoadingState] = useState<ModelLoadingState>({
     isLoading: false,
-    currentModel: '',
-    loadedModels: [],
+    phase: null,
   });
 
   // Processing message for large images
@@ -146,9 +144,7 @@ export default function Home() {
 
   // Settings (now mutable)
   const [detectionSettings, setDetectionSettings] = useState<DetectionSettings>({
-    detector: 'tiny_face_detector',
     minConfidence: 0.5,
-    inputSize: 416,
   });
 
   const [emojiSettings, setEmojiSettings] = useState<EmojiSettings>({
@@ -245,82 +241,34 @@ export default function Home() {
     }
   }, [activeReplacementId, replacements]);
 
-  // Set up the model loading progress callback once on mount. Actual model
-  // loading is deferred until it's needed (first upload, or switching
-  // detector in settings) — see ensureDetectorModelLoaded below.
+  // Set up the detector's progress callback once on mount, and dispose the
+  // Worker on unmount to release its WASM/GPU resources. Actual init is
+  // deferred until it's needed — see ensureFaceDetectorReady below.
   useEffect(() => {
-    setModelLoadingProgressCallback((progress) => {
-      setModelLoadingState({
-        isLoading: true,
-        currentModel: progress.model,
-        loadedModels: [],
-      });
+    setFaceDetectorProgressCallback((phase) => {
+      setModelLoadingState({ isLoading: true, phase });
     });
+
+    return () => {
+      disposeFaceDetector();
+    };
   }, []);
 
-  // Loads the model for a given detector if it isn't already loaded,
+  // Starts the Worker + MediaPipe detector if it isn't already ready,
   // showing the blocking ModelLoadingModal (isLoading: true) while it does.
-  // Used for the very first load triggered by an image upload.
-  const ensureDetectorModelLoaded = useCallback(async (detector: DetectionSettings['detector']) => {
-    const modelName = detector === 'tiny_face_detector' ? 'tinyFaceDetector' : 'ssdMobilenetv1';
-    if (isModelLoaded(modelName)) return;
-
+  // Used for the very first load triggered by an image upload; subsequent
+  // calls resolve immediately since initFaceDetector() reuses one promise.
+  const ensureFaceDetectorReady = useCallback(async () => {
     try {
-      if (detector === 'tiny_face_detector') {
-        await loadTinyModel(false); // With progress
-      } else {
-        await loadSSDModel();
-      }
-      setModelLoadingState({
-        isLoading: false,
-        currentModel: '',
-        loadedModels: [modelName],
-      });
+      await initFaceDetector();
+      setModelLoadingState({ isLoading: false, phase: null });
     } catch (error) {
       console.error('模型加载失败:', error);
-      setModelLoadingState((prev) => ({
-        ...prev,
-        isLoading: false,
-      }));
+      setModelLoadingState({ isLoading: false, phase: null });
       setError('模型加载失败，请刷新页面或检查网络后重试');
       throw error;
     }
   }, []);
-
-  // Handle detector change - load model on demand if needed (skipped on the
-  // initial mount, since the first load is instead triggered by the first
-  // image upload via ensureDetectorModelLoaded).
-  const isFirstDetectorEffect = useRef(true);
-  useEffect(() => {
-    if (isFirstDetectorEffect.current) {
-      isFirstDetectorEffect.current = false;
-      return;
-    }
-
-    const handleDetectorChange = async () => {
-      const detector = detectionSettings.detector;
-      const modelName = detector === 'tiny_face_detector' ? 'tinyFaceDetector' : 'ssdMobilenetv1';
-
-      if (isModelLoaded(modelName)) return;
-
-      const label = detector === 'tiny_face_detector' ? '极速模式' : '标准模式';
-      showToast(`⏳ 正在加载${label}`);
-
-      try {
-        if (detector === 'tiny_face_detector') {
-          await loadTinyModel(false); // Load with progress
-        } else {
-          await loadSSDModel();
-        }
-        showToast(`✅ ${label}就绪`);
-      } catch (error) {
-        console.error('检测器加载失败:', error);
-        showToast(`❌ ${label}加载失败，请检查网络后重试`);
-      }
-    };
-
-    handleDetectorChange();
-  }, [detectionSettings.detector, showToast]);
 
   // Auto-apply emoji settings when they change
   // Only update styles (scale, opacity, flip). Never touch emojiUrl here:
@@ -388,13 +336,13 @@ export default function Home() {
       clearHistory();
 
       try {
-        // Load the currently selected detector's model if this is the first
-        // time it's needed (deferred from mount so the app doesn't block on
-        // a model download before the user has even uploaded anything).
+        // Start the detector Worker if this is the first time it's needed
+        // (deferred from mount so the app doesn't block on a WASM/model
+        // download before the user has even uploaded anything).
         try {
-          await ensureDetectorModelLoaded(detectionSettings.detector);
+          await ensureFaceDetectorReady();
         } catch {
-          // ensureDetectorModelLoaded already set the error message; stop here.
+          // ensureFaceDetectorReady already set the error message; stop here.
           return;
         }
 
@@ -436,7 +384,7 @@ export default function Home() {
         setProcessingMessage('');
       }
     },
-    [detectAndSetFaces, clearHistory, ensureDetectorModelLoaded, detectionSettings.detector]
+    [detectAndSetFaces, clearHistory, ensureFaceDetectorReady]
   );
 
   // Handle emoji selection

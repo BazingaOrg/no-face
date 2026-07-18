@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **No Face** is a privacy-focused web application that replaces faces in images with emojis. All processing happens client-side in the browser - no data is uploaded to servers.
 
-**Tech Stack**: Next.js 15 (App Router), TypeScript, Tailwind CSS v4, @vladmandic/face-api, emoji-picker-react, Framer Motion
+**Tech Stack**: Next.js 15 (App Router), TypeScript, Tailwind CSS v4, @mediapipe/tasks-vision (in a Web Worker), emoji-picker-react, Framer Motion
 
 ## Common Commands
 
@@ -33,7 +33,7 @@ bun run lint
 
 ### Model Files Setup
 
-Face detection models are self-hosted in `public/models/` (SSD MobileNet V1 and Tiny Face Detector; the default is Tiny, SSD is the on-demand high-accuracy mode). The `MODEL_URLS` constant in `lib/faceApi.ts` lists the local path first with CDN fallbacks.
+Face detection runs via MediaPipe's `FaceDetector` (full-range BlazeFace) in a dedicated Web Worker (`workers/faceDetection.worker.ts`). Both the `.task` model (`public/models/blaze_face_full_range.task`) and the WASM runtime (`public/mediapipe/wasm/`) are self-hosted — no CDN access at runtime. GPU delegate is tried first, falling back to CPU on failure.
 
 See `MODELS_SETUP.md` for detailed instructions.
 
@@ -42,7 +42,7 @@ See `MODELS_SETUP.md` for detailed instructions.
 ### Core Workflow
 
 1. **Image Upload** (`components/ImageUploader.tsx`) - Drag & drop, click, or mobile camera (object URL based)
-2. **Face Detection** (`lib/runFaceDetection.ts` → `lib/faceApi.ts`) - @vladmandic/face-api with SSD MobileNet V1 or Tiny Face Detector; large images are downscaled first via `utils/imageOptimization.ts`
+2. **Face Detection** (`lib/runFaceDetection.ts` → `lib/faceDetectorClient.ts` → `workers/faceDetection.worker.ts`) - MediaPipe FaceDetector running off the main thread; large images are downscaled first via `utils/imageOptimization.ts`, then transferred to the Worker as an `ImageBitmap`
 3. **Emoji Selection** (`components/EmojiSelector.tsx`) - Chinese-searchable curated grid by default, full emoji-picker-react panel on demand, plus a random button
 4. **Canvas Display** (`components/FaceCanvas.tsx`) - Interactive preview with click-to-replace, per-face badges, devicePixelRatio rendering, drag-to-reposition on the inspected face
 5. **Per-face Tuning** (`components/EmojiInspector.tsx`) - Bottom sheet for scale/opacity/flip on a single face
@@ -110,7 +110,8 @@ app/page.tsx                 # Main page with state management and orchestration
 
 ### Utility Libraries
 
-- `lib/faceApi.ts`: @vladmandic/face-api wrapper for model loading and face detection
+- `lib/faceDetectorClient.ts`: main-thread Worker client (starts the Worker, `init`/`detect`/`dispose`, `createImageBitmap` + transfer, Promise-per-request via an id)
+- `workers/faceDetection.worker.ts`: MediaPipe FaceDetector running in a module Worker (GPU delegate with CPU fallback, fixed low confidence threshold — the main thread filters by `minConfidence`)
 - `lib/runFaceDetection.ts`: Normalised detection pipeline (coordinate mapping back to original size)
 - `lib/twemoji.ts`: Twemoji CDN utilities for emoji URL generation and preloading
 - `lib/emojiImageCache.ts`: Shared emoji bitmap cache (dedupes CDN fetches, enables synchronous redraws)
@@ -126,7 +127,7 @@ app/page.tsx                 # Main page with state management and orchestration
 
 **Setup**: See `MODELS_SETUP.md` for detailed setup instructions
 
-**Configuration**: the `MODEL_URLS` constant in `lib/faceApi.ts` - local path first, CDN fallbacks after
+**Configuration**: `workers/faceDetection.worker.ts` points `FilesetResolver.forVisionTasks` at `/mediapipe/wasm` and `modelAssetPath` at `/models/blaze_face_full_range.task` - both self-hosted, no CDN fallback
 
 ### Emoji Loading
 
@@ -209,7 +210,7 @@ See `docs/plans/2026-07-17-perf-and-model-optimization.md` for the current plan 
 
 ## File Locations
 
-- Face detection logic: `lib/faceApi.ts`, `lib/runFaceDetection.ts`
+- Face detection logic: `workers/faceDetection.worker.ts`, `lib/faceDetectorClient.ts`, `lib/runFaceDetection.ts`
 - Emoji utilities: `lib/twemoji.ts`, `lib/emojiImageCache.ts`, `lib/emojiSearch.ts` (Chinese keyword search)
 - Emoji rendering: `lib/emojiRenderUtils.ts`
 - Image optimization: `utils/imageOptimization.ts`

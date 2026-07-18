@@ -1,4 +1,4 @@
-import { detectFaces } from '@/lib/faceApi';
+import { detectFacesWithWorker } from '@/lib/faceDetectorClient';
 import { DetectionSettings, DetectedFace } from '@/types';
 import { mapCoordinatesToOriginal } from '@/utils/imageOptimization';
 
@@ -23,7 +23,7 @@ export async function runFaceDetection({
   settings,
   scale = 1,
 }: RunFaceDetectionOptions): Promise<RunFaceDetectionResult> {
-  const detectedFaces = await detectFaces(input, settings);
+  const detectedFaces = await detectFacesWithWorker(input, settings.minConfidence);
 
   const faces =
     scale < 1

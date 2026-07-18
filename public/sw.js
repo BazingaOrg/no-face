@@ -1,18 +1,20 @@
 /**
  * Service worker for offline support.
  *
- * All face detection runs on models already self-hosted in /models, and all
- * image processing happens on-device — the only network dependency is the
- * initial page load and the Twemoji CDN. Caching both lets the app keep
- * working (including re-opening previously used emojis) with no connection.
+ * Face detection runs via a Worker (workers/faceDetection.worker.ts) on
+ * MediaPipe's FaceDetector, with the WASM runtime and .task model
+ * self-hosted under /mediapipe/ and /models/. All image processing happens
+ * on-device — the only network dependency is the initial page load and the
+ * Twemoji CDN. Caching both lets the app keep working (including
+ * re-opening previously used emojis) with no connection.
  *
  * Bump CACHE_VERSION whenever precached assets change so old caches are
  * dropped on activate instead of accumulating forever.
  */
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `no-face-${CACHE_VERSION}`;
 
-// Model files are NOT precached here — they're large (~5.6MB combined) and
+// Model and wasm files are NOT precached here — they're multi-megabyte and
 // addAll fails the whole install if any one entry 404s. They're instead
 // filled in lazily by the runtime cacheFirst handler below on first request.
 const APP_SHELL = ['/', '/site.webmanifest', '/kaonashi.jpg'];
@@ -82,8 +84,13 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  // Face detection models and Next.js hashed static assets: cache-first
-  if (url.pathname.startsWith('/models/') || url.pathname.startsWith('/_next/static/')) {
+  // Face detection model, MediaPipe wasm runtime, and Next.js hashed static
+  // assets: cache-first
+  if (
+    url.pathname.startsWith('/models/') ||
+    url.pathname.startsWith('/mediapipe/') ||
+    url.pathname.startsWith('/_next/static/')
+  ) {
     event.respondWith(cacheFirst(request));
     return;
   }

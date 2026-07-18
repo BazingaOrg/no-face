@@ -2,7 +2,7 @@
  * Core type definitions for No Face application
  */
 
-// Face detection result from face-api.js
+// Face detection result from the MediaPipe FaceDetector Worker
 export interface DetectedFace {
   id: string;
   box: {
@@ -35,10 +35,7 @@ export interface EmojiReplacement {
 
 // Face detection settings
 export interface DetectionSettings {
-  detector: 'ssd_mobilenetv1' | 'tiny_face_detector';
-  minConfidence: number; // 0-1
-  inputSize?: number; // for tiny_face_detector
-  scoreThreshold?: number; // for tiny_face_detector
+  minConfidence: number; // 0-1, the only user-adjustable detection parameter
 }
 
 // Emoji settings
@@ -49,16 +46,10 @@ export interface EmojiSettings {
   flipY: boolean; // vertical flip
 }
 
-// Model loading progress callback (indeterminate: no fabricated percentage)
-export type ModelLoadingProgressCallback = (progress: {
-  model: string;
-  loaded: number;
-  total: number;
-}) => void;
-
-// Model loading state
+// Model loading state (indeterminate: no fabricated percentage). `phase`
+// reflects the Worker's 'wasm' | 'model' progress events and drives the
+// loading modal's wording.
 export interface ModelLoadingState {
   isLoading: boolean;
-  currentModel: string;
-  loadedModels: string[];
+  phase: 'wasm' | 'model' | null;
 }

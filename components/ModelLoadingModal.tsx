@@ -7,9 +7,10 @@ interface ModelLoadingModalProps {
   state: ModelLoadingState;
 }
 
-const MODEL_DISPLAY_NAMES: Record<string, string> = {
-  ssdMobilenetv1: 'SSD MobileNet V1',
-  tinyFaceDetector: 'Tiny Face Detector',
+// Indeterminate: no fabricated percentage, just which phase the Worker is in.
+const PHASE_LABELS: Record<'wasm' | 'model', string> = {
+  wasm: '下载运行时',
+  model: '加载检测模型',
 };
 
 export default function ModelLoadingModal({ state }: ModelLoadingModalProps) {
@@ -48,19 +49,19 @@ export default function ModelLoadingModal({ state }: ModelLoadingModalProps) {
 
           {/* Title */}
           <h2 className="text-2xl font-black text-gray-800 dark:text-gray-100 text-center mb-2">
-            正在加载 AI 模型
+            正在加载检测引擎
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
             首次使用需要下载模型，请稍候...
           </p>
 
-          {/* Current Model Info */}
-          {state.currentModel && (
+          {/* Current Phase Info */}
+          {state.phase && (
             <div className="mb-6">
               <div className="flex items-center justify-center gap-3 mb-4 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600 rounded-xl">
                 <span className="text-2xl">⏳</span>
                 <span className="text-lg font-black text-blue-700 dark:text-blue-300">
-                  {MODEL_DISPLAY_NAMES[state.currentModel]}
+                  {PHASE_LABELS[state.phase]}
                 </span>
                 <m.div
                   animate={{ rotate: 360 }}

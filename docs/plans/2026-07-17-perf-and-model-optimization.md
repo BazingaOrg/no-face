@@ -54,12 +54,13 @@
 
 ## Phase 3：结构性改造（需排期）
 
-- [ ] **3.1 检测迁出主线程：MediaPipe FaceDetection + Web Worker/OffscreenCanvas**
-  - 动机：face-api 依赖 DOM 输入无法进 Worker；MediaPipe（BlazeFace short ~230 KB）原生支持 WASM + GPU delegate，接受 ImageBitmap
-  - 前置：由 deep-reasoner 出迁移设计文档（坐标系映射、双检测器策略保留与否、回退方案），确认后再实施
+- [x] **3.1 检测迁出主线程：MediaPipe FaceDetection + Web Worker/OffscreenCanvas**（2026-07-18 已完成，设计与实施记录见 `docs/plans/2026-07-18-mediapipe-worker-migration.md`）
+  - 动机：face-api 依赖 DOM 输入无法进 Worker；MediaPipe 原生支持 WASM + GPU delegate，接受 ImageBitmap
+  - 实施摘要：新增 `workers/faceDetection.worker.ts` + `lib/faceDetectorClient.ts`；`DetectionSettings` 收敛为单一 `minConfidence`（双检测器/性能模式全部删除，非"保留策略"）；`.task` 模型（full-range BlazeFace，实际 ~1.03MB float16，非最初估计的 ~0.23MB）与 WASM 运行时全部自托管（`public/models/`、`public/mediapipe/wasm/`）；彻底移除 `@vladmandic/face-api` 与相关权重文件，不保留回退路径；CSP `script-src` 从 `'unsafe-eval'` 收紧为 `'wasm-unsafe-eval'`；`public/sw.js` CACHE_VERSION v2→v3，新增 `/mediapipe/` 缓存路由
+  - 未覆盖：iOS Safari / 真机 GPU delegate 回退未做真机验证（沙盒环境无法执行），留给 Phase 4"浏览器兼容性测试"
   - 若未来需要密集小脸/侧脸检测，再评估 ONNX Runtime Web + SCRFD（后处理成本高，当前不做）
   - 分派：设计 deep-reasoner → 实现 fast-worker → verify: qa-runner
-- [ ] **3.2 Next 16 升级预案**：`next.config.ts:56` 的 webpack 定制（face-api fallback/externals）需迁移到 Turbopack 配置或显式 `--webpack`；当前锁定 next@15.5.9 无碍，升级时处理
+- [x] **3.2 Next 16 升级预案**：原顾虑的 `next.config.ts` webpack 定制（face-api fallback/externals）已随 3.1 整体删除（非迁移到 Turbopack），因此该项风险已消解；`next.config.ts` 目前仅剩 CSP/安全头配置，无 webpack 自定义
 
 ## Phase 4：保留的功能项（原 ROADMAP 精选）
 
@@ -67,7 +68,7 @@
 
 - [ ] **浏览器兼容性测试**：iOS Safari 重点，其次 Firefox、Android Chrome
 - [ ] **捏合/滚动缩放**：对当前 inspected face 独立缩放（touch pinch + wheel）
-- [ ] **实时摄像头模式**：规范见 `docs/real-time-camera.md`；依赖 Phase 3.1 完成后再做（Worker 化检测是实时模式的前提性能基础）
+- [ ] **实时摄像头模式**：规范见 `docs/real-time-camera.md`；Phase 3.1 已完成，前提性能基础（Worker 化检测）已就绪，可排期
 - [ ] **i18n 完整翻译**：UI 文案抽离 + 英文版
 
 另有 UI/UX 评审遗留小项见 `docs/ui-ux-copy-review.md` 头部待做清单，随手修复即可，不单独排期。
@@ -98,6 +99,7 @@ Phase 2（2.1-2.4）已完成（2.5 保留未做，仍是可选项）：
 
 ## 评审记录
 
+- 2026-07-18 qa-runner 独立验证 Phase 3.1（MediaPipe 迁移）：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 196 kB 持平——移除 face-api+tfjs 与新增 tasks-vision glue 大致相抵，Worker 代码在独立按需 chunk）；静态核对（face-api 零残留、新资产完整：.task 1.08MB + wasm 4 文件约 21MB、GPU→CPU 回退与 close() 释放在位、DetectionSettings 仅剩 minConfidence、CSP 收紧为 wasm-unsafe-eval、SW v3 含 /mediapipe/ 路由、三份文档已更新）全部通过。一处与设计文档的语义差异：minConfidence 过滤实际放在 Worker 侧（设计写的是主线程侧），结果等价且"滑杆免重建 detector 即时生效"的目标同样达成，接受该偏差。真机（尤其 iOS Safari）未验证，归入 Phase 4 兼容性测试。
 - 2026-07-18 qa-runner 独立验证 Phase 2：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 196 kB，shared 102 kB）；静态核对（10 处 framer-motion 导入串完好、无 `motion.*` 残留、layout 的 LazyMotion+domMax+strict 就位、FaceCanvas 主绘制路径只 blit 离屏 canvas、伪进度与 percentage 字段无残留、emojiSettings 判空早退在位）全部通过。实施插曲：fast-worker 的一次正则替换曾把 import 串损坏为 `'framer-m'`，当场修复，验证确认无残留。
 - 2026-07-17 qa-runner 独立验证 Phase 1：lint ✅、tsc ✅、vitest 25/25 ✅、`next build` 成功（First Load JS 226 kB）、静态核对（landmark 无残留引用、SW APP_SHELL 无模型条目且 CACHE_VERSION=v2、默认检测器 tiny、模型按需加载）全部通过。
 - 实施插曲：fast-worker 曾误删 AGENTS.md/CLAUDE.md/ROADMAP.md 并用 `git checkout HEAD` 恢复，导致已被有意删除的 ROADMAP.md 复活；编排层已重新删除并同步更新了 CLAUDE.md/AGENTS.md/README.md 中的 ROADMAP 引用（指向本文档）。

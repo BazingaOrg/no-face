@@ -22,9 +22,7 @@ export default function SettingsPanel({
   isOpen,
   onToggle,
 }: SettingsPanelProps) {
-  const currentSensitivity = detectionSettings.detector === 'ssd_mobilenetv1'
-    ? (detectionSettings.minConfidence ?? 0.5)
-    : (detectionSettings.scoreThreshold ?? 0.5);
+  const currentSensitivity = detectionSettings.minConfidence ?? 0.5;
 
   // Text input works in whole percentages (10-90); settings store 0.1-0.9
   const [sensitivityInput, setSensitivityInput] = useState(
@@ -40,18 +38,7 @@ export default function SettingsPanel({
     if (!isNaN(numValue)) {
       const clamped = Math.min(Math.max(numValue, 10), 90) / 100;
       setSensitivityInput(Math.round(clamped * 100).toString());
-
-      if (detectionSettings.detector === 'ssd_mobilenetv1') {
-        onDetectionChange({
-          ...detectionSettings,
-          minConfidence: clamped,
-        });
-      } else {
-        onDetectionChange({
-          ...detectionSettings,
-          scoreThreshold: clamped,
-        });
-      }
+      onDetectionChange({ minConfidence: clamped });
     }
   };
   return (
@@ -113,45 +100,6 @@ export default function SettingsPanel({
               🔍 人脸检测
             </h3>
 
-            {/* Detector Type */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                检测模式
-              </label>
-              <select
-                value={detectionSettings.detector}
-                onChange={(e) => {
-                  const newDetector = e.target.value as 'ssd_mobilenetv1' | 'tiny_face_detector';
-                  onDetectionChange({
-                    ...detectionSettings,
-                    detector: newDetector,
-                    // Auto-set inputSize to 416 (balanced mode) when switching to Tiny Face Detector
-                    ...(newDetector === 'tiny_face_detector' && { inputSize: 416 }),
-                  });
-                }}
-                className="w-full px-4 py-3 text-base md:text-sm border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold shadow-sm appearance-none cursor-pointer transition-all"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: '1.5em 1.5em',
-                  paddingRight: '2.5rem',
-                }}
-              >
-                <option value="tiny_face_detector" className="text-base md:text-sm font-bold py-2">
-                  ⚡ 极速模式（默认）
-                </option>
-                <option value="ssd_mobilenetv1" className="text-base md:text-sm font-bold py-2">
-                  🎯 高精度模式
-                </option>
-              </select>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
-                {detectionSettings.detector === 'ssd_mobilenetv1'
-                  ? '高精度模式，切换时按需加载模型'
-                  : '默认模式，速度快，适合大多数场景'}
-              </p>
-            </div>
-
             {/* Detection Sensitivity */}
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
@@ -183,24 +131,9 @@ export default function SettingsPanel({
                 min="0.1"
                 max="0.9"
                 step="0.01"
-                value={
-                  detectionSettings.detector === 'ssd_mobilenetv1'
-                    ? detectionSettings.minConfidence
-                    : detectionSettings.scoreThreshold || 0.5
-                }
+                value={detectionSettings.minConfidence}
                 onChange={(e) => {
-                  const value = parseFloat(e.target.value);
-                  if (detectionSettings.detector === 'ssd_mobilenetv1') {
-                    onDetectionChange({
-                      ...detectionSettings,
-                      minConfidence: value,
-                    });
-                  } else {
-                    onDetectionChange({
-                      ...detectionSettings,
-                      scoreThreshold: value,
-                    });
-                  }
+                  onDetectionChange({ minConfidence: parseFloat(e.target.value) });
                 }}
                 className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500"
               />
@@ -209,20 +142,13 @@ export default function SettingsPanel({
                 <span>🎯 更严格</span>
               </div>
             </div>
-
-            {/* Performance Mode - Hidden, defaults to 416 (balanced mode) */}
-            {/* Auto-set inputSize to 416 when switching to Tiny Face Detector */}
           </div>
 
           {/* Reset to Defaults */}
           <div className="pt-4 border-t border-gray-200 dark:border-slate-700 flex justify-center">
             <m.button
               onClick={() => {
-                onDetectionChange({
-                  detector: 'tiny_face_detector',
-                  minConfidence: 0.5,
-                  inputSize: 416,
-                });
+                onDetectionChange({ minConfidence: 0.5 });
                 onEmojiChange({
                   scale: 1.2,
                   opacity: 1.0,

@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@vladmandic/face-api": "^1.7.15",
+    "@mediapipe/tasks-vision": "^0.10.35",
     "emoji-picker-react": "^4.14.0",
     "framer-motion": "^12.23.24",
     "next": "15.5.9",

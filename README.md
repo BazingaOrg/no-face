@@ -13,7 +13,7 @@
 ### ✨ Features
 
 - 📤 **Multiple upload methods** - Drag & drop, click to select, or use camera on mobile
-- 🔍 **Automatic face detection** - Powered by face-api.js with dual detection modes
+- 🔍 **Automatic face detection** - Powered by MediaPipe FaceDetector running in a Web Worker
 - 😀 **Rich emoji picker** - 3600+ emojis with keyword search, plus a random-pick button
 - 🎯 **Flexible editing** - Click to replace individual faces, open the inspector, or apply changes to everyone at once
 - 🧲 **Per-face inspector** - Bottom sheet with precise scale/opacity controls, quick default updates, and a drag handle to close
@@ -68,7 +68,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 - **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Face Detection**: [@vladmandic/face-api](https://github.com/vladmandic/face-api)
+- **Face Detection**: [@mediapipe/tasks-vision](https://github.com/google-ai-edge/mediapipe) (FaceDetector, in a Web Worker)
 - **Emoji**: [emoji-picker-react](https://github.com/ealush/emoji-picker-react) + [Twemoji](https://github.com/twitter/twemoji)
 - **Animation**: [Framer Motion](https://www.framer.com/motion/)
 
@@ -92,8 +92,10 @@ no-face/
 │   ├── useFaceBadgeLayout.ts         # Badge measurement & positioning helper
 │   ├── useFrameDebouncedCallback.ts  # Frame-synchronised debounce hook
 │   └── useInspectorActions.ts        # Inspector action aggregation
+├── workers/
+│   └── faceDetection.worker.ts # MediaPipe FaceDetector, off the main thread
 ├── lib/
-│   ├── faceApi.ts            # @vladmandic/face-api wrapper
+│   ├── faceDetectorClient.ts # Main-thread Worker client (init/detect/dispose)
 │   ├── runFaceDetection.ts   # Normalised detection pipeline
 │   ├── twemoji.ts            # Twemoji CDN utilities
 │   ├── emojiImageCache.ts    # Shared emoji bitmap cache
@@ -102,7 +104,8 @@ no-face/
 │   └── imageOptimization.ts  # Large-image downscaling for detection
 ├── types/
 │   └── index.ts              # TypeScript type definitions
-├── public/models/            # Face detection models (self-hosted)
+├── public/models/            # Face detection model (self-hosted)
+├── public/mediapipe/wasm/    # MediaPipe WASM runtime (self-hosted)
 ├── docs/                     # Design specs & improvement plans
 ├── docs/plans/            # Step-by-step plan docs (source of truth for TODOs)
 ├── MODELS_SETUP.md           # Model setup guide
@@ -113,9 +116,9 @@ no-face/
 
 #### Face Detection
 
-- **Default detector**: Tiny Face Detector (fast, loaded on first upload)
-- **Alternative**: SSD MobileNet V1 (higher accuracy, loaded on demand when selected)
-- **Models**: Self-hosted in `public/models/` (see [MODELS_SETUP.md](./MODELS_SETUP.md))
+- **Detector**: MediaPipe full-range BlazeFace, running in a dedicated Web Worker (GPU delegate preferred, CPU fallback)
+- **Sensitivity**: A single adjustable confidence threshold (0.1-0.9)
+- **Assets**: Self-hosted model (`public/models/`) and WASM runtime (`public/mediapipe/wasm/`) — see [MODELS_SETUP.md](./MODELS_SETUP.md)
 
 #### Emoji Settings
 
@@ -138,7 +141,7 @@ See [docs/plans/2026-07-17-perf-and-model-optimization.md](./docs/plans/2026-07-
 
 **Planned Features**
 - Real-time camera mode (in design)
-  - Live face tracking via `@vladmandic/face-api` on `HTMLVideoElement`
+  - Live face tracking via the existing MediaPipe Worker, switched to `runningMode: 'VIDEO'`
   - Streamlined UI entry alongside the existing uploader with a dedicated state machine
   - Real-time emoji overlay with smoothing, pause, and snapshot controls
 - Video recording with emoji effects
@@ -170,7 +173,7 @@ MIT License - free for personal and commercial use.
 
 ### 🙏 Acknowledgments
 
-- [face-api.js](https://github.com/justadudewhohacks/face-api.js) by Vincent Mühler - Face detection models
+- [MediaPipe](https://github.com/google-ai-edge/mediapipe) by Google - Face detection models
 - [Twemoji](https://github.com/twitter/twemoji) by Twitter - High-quality emoji graphics
 - [face-mask-web](https://github.com/Innei/face-mask-web) by Innei - Inspiration for this project
 
@@ -185,7 +188,7 @@ MIT License - free for personal and commercial use.
 ### ✨ 功能特性
 
 - 📤 **多种上传方式** - 拖放上传、点击选择或移动端相机拍摄
-- 🔍 **自动人脸检测** - 基于 face-api.js 的双模式检测
+- 🔍 **自动人脸检测** - 基于 MediaPipe FaceDetector，运行在 Web Worker 中
 - 😀 **丰富表情库** - 3600+ Emoji，支持关键词搜索与随机选择
 - 🎯 **灵活编辑** - 单击替换单张人脸、打开微调抽屉或一键应用给所有人
 - 🧲 **微调抽屉** - 底部抽屉可精调大小/透明度、更新默认值，并支持拖拽手柄关闭
@@ -240,7 +243,7 @@ npm start
 - **框架**: [Next.js 15](https://nextjs.org/) (App Router)
 - **语言**: [TypeScript](https://www.typescriptlang.org/)
 - **样式**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **人脸检测**: [@vladmandic/face-api](https://github.com/vladmandic/face-api)
+- **人脸检测**: [@mediapipe/tasks-vision](https://github.com/google-ai-edge/mediapipe)（FaceDetector，运行于 Web Worker）
 - **表情包**: [emoji-picker-react](https://github.com/ealush/emoji-picker-react) + [Twemoji](https://github.com/twitter/twemoji)
 - **动画**: [Framer Motion](https://www.framer.com/motion/)
 
@@ -265,7 +268,7 @@ no-face/
 │   ├── useFrameDebouncedCallback.ts  # 帧同步防抖
 │   └── useInspectorActions.ts        # 微调面板动作聚合
 ├── lib/
-│   ├── faceApi.ts            # @vladmandic/face-api 封装
+│   ├── faceDetectorClient.ts # 主线程 Worker 封装（init/detect/dispose）
 │   ├── runFaceDetection.ts   # 标准化检测管线
 │   ├── twemoji.ts            # Twemoji CDN 工具
 │   ├── emojiImageCache.ts    # Emoji 位图共享缓存
@@ -275,6 +278,7 @@ no-face/
 ├── types/
 │   └── index.ts              # TypeScript 类型定义
 ├── public/models/            # 人脸检测模型（本地托管）
+├── public/mediapipe/wasm/    # MediaPipe WASM 运行时（本地托管）
 ├── docs/                     # 设计规范与改进方案
 ├── docs/plans/            # 分步执行方案（待办事项唯一来源）
 ├── MODELS_SETUP.md           # 模型配置指南
@@ -285,9 +289,9 @@ no-face/
 
 #### 人脸检测
 
-- **默认检测器**: Tiny Face Detector（更快，首次上传时才加载）
-- **备选检测器**: SSD MobileNet V1（高精度，切换时按需加载）
-- **模型加载**: 本地托管于 `public/models/`（详见 [MODELS_SETUP.md](./MODELS_SETUP.md)）
+- **检测器**: MediaPipe full-range BlazeFace，运行于独立 Web Worker（优先 GPU delegate，失败自动回退 CPU）
+- **灵敏度**: 唯一可调参数，检测置信度阈值（0.1-0.9）
+- **资源托管**: 模型（`public/models/`）与 WASM 运行时（`public/mediapipe/wasm/`）均本地托管，详见 [MODELS_SETUP.md](./MODELS_SETUP.md)
 
 #### Emoji 设置
 
@@ -334,7 +338,7 @@ MIT 许可证 - 可免费用于个人和商业用途。
 
 ### 🙏 致谢
 
-- [face-api.js](https://github.com/justadudewhohacks/face-api.js) by Vincent Mühler - 人脸检测模型
+- [MediaPipe](https://github.com/google-ai-edge/mediapipe) by Google - 人脸检测模型
 - [Twemoji](https://github.com/twitter/twemoji) by Twitter - 高质量 Emoji 图形
 - [face-mask-web](https://github.com/Innei/face-mask-web) by Innei - 项目灵感来源
 
