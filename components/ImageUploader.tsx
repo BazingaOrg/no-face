@@ -3,11 +3,12 @@
 import { useCallback, useState } from 'react';
 import { m } from 'framer-motion';
 import { useI18n } from '@/lib/i18n';
+import { Upload } from '@/components/icons';
 
 // NASA public-domain Expedition 61 crew portrait (images.nasa.gov, nasa_id
 // jsc2019e022584_alt) — three clear frontal faces, ~190KB. Used as a
 // zero-friction "try it" sample before the user uploads their own photo.
-const SAMPLE_IMAGE_URL = '/sample-group.jpg';
+const SAMPLE_IMAGE_URL = '/sample-faces.jpg';
 
 interface ImageUploaderProps {
   onImageLoad: (image: HTMLImageElement, fileSize?: number) => void;
@@ -135,9 +136,9 @@ export default function ImageUploader({ onImageLoad, onError, disabled }: ImageU
         />
 
         <div className="flex flex-col items-center gap-3">
-          {/* Upload icon - Duolingo style */}
-          <div className="text-5xl md:text-6xl">
-            📸
+          {/* Upload icon */}
+          <div className="text-gray-400 dark:text-gray-500">
+            <Upload className="w-12 h-12 md:w-14 md:h-14" size={56} />
           </div>
 
           {/* Text */}
