@@ -2,41 +2,56 @@
 
 import { m } from 'framer-motion';
 
-interface ProcessingOverlayProps {
-  message: string;
+interface LoadingOverlayProps {
+  icon: string;
+  title: string;
   hint?: string;
+  tip?: string;
 }
 
-export default function ProcessingOverlay({ message, hint }: ProcessingOverlayProps) {
+// Single overlay used for both model loading (first-ever load, can take
+// seconds to download the WASM/model) and face detection (upload/redetect,
+// usually well under a second). Merging them into one mounted component
+// means a fast detection right after a cold model load crossfades its
+// text/icon in place instead of unmounting one modal and mounting another —
+// which is what caused two overlays to flash in quick succession. Visibility
+// itself is gated by the caller via useDelayedVisibility so sub-150ms work
+// never shows this at all.
+export default function LoadingOverlay({ icon, title, hint, tip }: LoadingOverlayProps) {
   return (
     <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md"
     >
       <m.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4"
+        className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 max-w-sm w-full mx-4"
       >
-        {/* Icon */}
-        <div className="text-5xl text-center mb-4">🔍</div>
+        <m.div
+          key={icon}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="text-5xl text-center mb-4"
+        >
+          {icon}
+        </m.div>
 
-        {/* Message */}
         <m.p
-          key={message}
+          key={title}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
           className="text-xl font-black text-gray-800 dark:text-gray-100 text-center mb-2"
         >
-          {message}
+          {title}
         </m.p>
 
-        {/* Hint */}
         {hint && (
           <m.p
             key={hint}
@@ -49,7 +64,6 @@ export default function ProcessingOverlay({ message, hint }: ProcessingOverlayPr
           </m.p>
         )}
 
-        {/* Scanning bar */}
         <div className="relative mt-5 h-2 w-full rounded-full bg-blue-100 dark:bg-slate-700/80 overflow-hidden">
           <m.span
             aria-hidden
@@ -58,6 +72,10 @@ export default function ProcessingOverlay({ message, hint }: ProcessingOverlayPr
             transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
           />
         </div>
+
+        {tip && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">{tip}</p>
+        )}
       </m.div>
     </m.div>
   );

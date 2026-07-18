@@ -1,24 +1,20 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
-import { m, AnimatePresence, MotionConfig, useDragControls } from 'framer-motion';
-import type { PanInfo } from 'framer-motion';
-import NextImage from 'next/image';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { m, AnimatePresence, MotionConfig } from 'framer-motion';
 import ImageUploader from '@/components/ImageUploader';
 import FaceCanvas from '@/components/FaceCanvas';
-import EmojiSelector from '@/components/EmojiSelector';
-import SettingsPanel from '@/components/SettingsPanel';
-import ModelLoadingModal from '@/components/ModelLoadingModal';
-import ProcessingOverlay from '@/components/ProcessingOverlay';
+import EmojiToolbar from '@/components/EmojiToolbar';
+import IconButton from '@/components/IconButton';
+import AppHeader from '@/components/AppHeader';
+import AppFooter from '@/components/AppFooter';
+import { Undo, Redo, Redetect, Clear, NewPhoto, ApplyAll, Download } from '@/components/icons';
+import LoadingOverlay from '@/components/LoadingOverlay';
 import Toast from '@/components/Toast';
-import EmojiInspector from '@/components/EmojiInspector';
-import { 
-  DetectedFace, 
-  EmojiReplacement, 
-  DetectionSettings, 
-  EmojiSettings,
-  ModelLoadingState 
+import {
+  DetectedFace,
+  EmojiReplacement,
+  ModelLoadingState
 } from '@/types';
 import {
   initFaceDetector,
@@ -28,15 +24,36 @@ import {
 import { preloadEmojiWithFallback } from '@/lib/twemoji';
 import { drawEmojiReplacement } from '@/lib/emojiRenderUtils';
 import { loadEmojiImage } from '@/lib/emojiImageCache';
-import { 
+import {
   optimizeImageForDetection,
   getImageSizeCategory,
   type OptimizedImage
 } from '@/utils/imageOptimization';
 import { runFaceDetection } from '@/lib/runFaceDetection';
-import { useInspectorActions } from '@/hooks/useInspectorActions';
 import { useHistoryStack } from '@/hooks/useHistoryStack';
+import { useWindowFileDrop } from '@/hooks/useWindowFileDrop';
+import { useDelayedVisibility } from '@/hooks/useDelayedVisibility';
 import { useI18n } from '@/lib/i18n';
+import { canvasEntranceSpring, mobileToolbarSpring, desktopColumnSpring } from '@/lib/motion';
+
+// Detection runs at this confidence threshold by default; if it finds no
+// faces, it retries once at a lower threshold before reporting an error.
+const DEFAULT_MIN_CONFIDENCE = 0.5;
+const FALLBACK_MIN_CONFIDENCE = 0.3;
+
+// Reserves scroll space at the bottom of mobile (<768) editing-state content
+// so it isn't hidden behind the fixed docked toolbar — used both on the
+// canvas column and (via a wrapper) on AppFooter, so scrolling all the way
+// down reveals the footer above the toolbar instead of the toolbar covering it.
+// 18rem comfortably clears the toolbar's tallest normal state (search bar +
+// emoji row + size slider + two buttons + icon row, ~255px) with margin for
+// the safe-area inset on notched devices.
+const MOBILE_TOOLBAR_SAFE_AREA = 'pb-72';
+
+const DEFAULT_EMOJI_SIZE = 1.2;
+// How long to wait after the last size-slider change before pushing undo
+// history — a drag produces many onChange events, but should cost one entry.
+const EMOJI_SIZE_HISTORY_DEBOUNCE_MS = 400;
 
 interface HistorySnapshot {
   faces: DetectedFace[];
@@ -46,7 +63,7 @@ interface HistorySnapshot {
 const MAX_HISTORY = 50;
 
 export default function Home() {
-  const { t, lang, setLang } = useI18n();
+  const { t } = useI18n();
 
   // State management
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -54,11 +71,18 @@ export default function Home() {
   const [faces, setFaces] = useState<DetectedFace[]>([]);
   const [replacements, setReplacements] = useState<EmojiReplacement[]>([]);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeReplacementId, setActiveReplacementId] = useState<string | null>(null);
+  const [emojiSize, setEmojiSize] = useState(DEFAULT_EMOJI_SIZE);
+  // Tracks whether the toolbar column has ever been shown during this
+  // editing session, so a redetect's brief faces=[] gap doesn't unmount and
+  // remount it (which would replay its entrance animation as a flicker).
+  // Only resets on a genuinely new session (new photo / new image upload).
+  const [hasShownFaces, setHasShownFaces] = useState(false);
+  // Freezes the displayed face count across a redetect's brief faces=[] gap
+  // (see progressText below) so the right column's layout doesn't jump.
+  const lastFaceCountRef = useRef(0);
 
   // Model loading state (loading is deferred to first upload, so this starts
   // idle instead of isLoading: true)
@@ -145,118 +169,11 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleUndo, handleRedo]);
 
-  // Settings (now mutable)
-  const [detectionSettings, setDetectionSettings] = useState<DetectionSettings>({
-    minConfidence: 0.5,
-  });
-
-  const [emojiSettings, setEmojiSettings] = useState<EmojiSettings>({
-    scale: 1.2,
-    opacity: 1.0,
-    flipX: false,
-    flipY: false,
-  });
-
-  const activeReplacement = useMemo(
-    () => replacements.find((replacement) => replacement.faceId === activeReplacementId) || null,
-    [replacements, activeReplacementId]
-  );
-
-  const activeFaceIndex = useMemo(
-    () => faces.findIndex((face) => face.id === activeReplacementId),
-    [faces, activeReplacementId]
-  );
-
-  const isInspectorOpen = Boolean(activeReplacement);
-
-  // Measure the inspector panel's actual rendered height (it varies with
-  // content/viewport) instead of a hardcoded padding guess, so small screens
-  // don't have their bottom faces hidden behind the panel.
-  const inspectorPanelRef = useRef<HTMLDivElement>(null);
-  const [inspectorPanelHeight, setInspectorPanelHeight] = useState(0);
-
   useEffect(() => {
-    const node = inspectorPanelRef.current;
-    if (!isInspectorOpen || !node || typeof ResizeObserver === 'undefined') return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setInspectorPanelHeight(entry.contentRect.height);
-      }
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [isInspectorOpen]);
-
-  // Fallback to a generous estimate before the first measurement lands.
-  const inspectorPadding = isInspectorOpen
-    ? `calc(${inspectorPanelHeight > 0 ? `${inspectorPanelHeight}px` : '18rem'} + env(safe-area-inset-bottom) + 1.5rem)`
-    : undefined;
-
-  const applyReplacementPatch = useCallback(
-    (
-      faceId: string,
-      patch: Partial<EmojiReplacement>,
-      options: { customState?: boolean } = {}
-    ) => {
-      setReplacements((prev) =>
-        prev.map((replacement) => {
-          if (replacement.faceId !== faceId) return replacement;
-
-          const next: EmojiReplacement = {
-            ...replacement,
-            ...patch,
-          };
-
-          if (options.customState !== undefined) {
-            next.isCustom = options.customState;
-          } else if (Object.keys(patch).length > 0) {
-            next.isCustom = true;
-          }
-
-          return next;
-        })
-      );
-    },
-    []
-  );
-
-  const {
-    handleUpdate: handleInspectorUpdate,
-    handleResetToDefault: handleInspectorReset,
-    handleAdoptAsDefault: handleInspectorAdopt,
-    handleApplyToAll: handleInspectorApplyToAll,
-    handleClose: handleInspectorClose,
-  } = useInspectorActions({
-    activeReplacement,
-    emojiSettings,
-    applyReplacementPatch,
-    setEmojiSettings,
-    setReplacements,
-    showToast,
-    setActiveReplacementId,
-    pushHistory,
-  });
-
-  const inspectorDragControls = useDragControls();
-
-  const handleInspectorDragEnd = useCallback(
-    (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-      if (info.offset.y > 120 || info.velocity.y > 600) {
-        handleInspectorClose();
-      }
-    },
-    [handleInspectorClose]
-  );
-
-  const handleInspectorHandlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      inspectorDragControls.start(event.nativeEvent);
-    },
-    [inspectorDragControls]
-  );
+    if (faces.length > 0) {
+      setHasShownFaces(true);
+    }
+  }, [faces]);
 
   useEffect(() => {
     if (!activeReplacementId) return;
@@ -281,7 +198,7 @@ export default function Home() {
   }, []);
 
   // Starts the Worker + MediaPipe detector if it isn't already ready,
-  // showing the blocking ModelLoadingModal (isLoading: true) while it does.
+  // showing the blocking LoadingOverlay (isLoading: true) while it does.
   // Used for the very first load triggered by an image upload; subsequent
   // calls resolve immediately since initFaceDetector() reuses one promise.
   const ensureFaceDetectorReady = useCallback(async () => {
@@ -296,44 +213,56 @@ export default function Home() {
     }
   }, [t]);
 
-  // Auto-apply emoji settings when they change
-  // Only update styles (scale, opacity, flip). Never touch emojiUrl here:
-  // an empty URL means the replacement fell back to native rendering and
-  // must stay that way.
+  // Debounce history pushes for the global emoji-size slider: many onChange
+  // events fire per drag, but undo should treat the whole drag as one step.
+  const emojiSizeHistoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleEmojiSizeChange = useCallback(
+    (size: number) => {
+      if (emojiSizeHistoryTimerRef.current === null) {
+        pushHistory();
+      } else {
+        clearTimeout(emojiSizeHistoryTimerRef.current);
+      }
+      emojiSizeHistoryTimerRef.current = setTimeout(() => {
+        emojiSizeHistoryTimerRef.current = null;
+      }, EMOJI_SIZE_HISTORY_DEBOUNCE_MS);
+
+      setEmojiSize(size);
+    },
+    [pushHistory]
+  );
+
   useEffect(() => {
-    if (replacements.length === 0) return;
-    if (!replacements.some((r) => !r.isCustom)) return;
+    return () => {
+      if (emojiSizeHistoryTimerRef.current !== null) {
+        clearTimeout(emojiSizeHistoryTimerRef.current);
+      }
+    };
+  }, []);
 
-    setReplacements((prev) =>
-      prev.map((replacement) => {
-        if (replacement.isCustom) {
-          return replacement;
-        }
-
-        return {
-          ...replacement,
-          scale: emojiSettings.scale,
-          opacity: emojiSettings.opacity,
-          flipX: emojiSettings.flipX,
-          flipY: emojiSettings.flipY,
-        };
-      })
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emojiSettings]);
-
-  // Shared detection tail: run detection and surface the result
-  // (used by both the initial upload flow and re-detection)
+  // Shared detection tail: run detection and surface the result (used by
+  // both the initial upload flow and re-detection). Detection runs at 0.5
+  // confidence; if that finds zero faces, it retries once at 0.3 before
+  // surfacing the "no faces" error, so low-confidence/small faces still
+  // stand a chance without the user having to fiddle with a settings panel.
   const detectAndSetFaces = useCallback(
     async (input: HTMLImageElement | HTMLCanvasElement, scale: number) => {
       // Small delay so the processing overlay can paint first
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      const detectionResult = await runFaceDetection({
+      let detectionResult = await runFaceDetection({
         input,
-        settings: detectionSettings,
+        settings: { minConfidence: DEFAULT_MIN_CONFIDENCE },
         scale,
       });
+
+      if (detectionResult.isEmpty) {
+        detectionResult = await runFaceDetection({
+          input,
+          settings: { minConfidence: FALLBACK_MIN_CONFIDENCE },
+          scale,
+        });
+      }
 
       if (detectionResult.isEmpty) {
         setError(t.error.noFacesFound);
@@ -346,7 +275,7 @@ export default function Home() {
       }
       setFaces(detectionResult.faces);
     },
-    [detectionSettings, showToast, t]
+    [showToast, t]
   );
 
   // Handle image upload
@@ -358,6 +287,8 @@ export default function Home() {
       setActiveReplacementId(null);
       setError(null);
       setIsProcessing(true);
+      setHasShownFaces(false);
+      lastFaceCountRef.current = 0;
       // History from the previous image no longer applies
       clearHistory();
 
@@ -415,9 +346,6 @@ export default function Home() {
 
   // Whole-window drag & drop: dropping a new image anywhere replaces the
   // current one via the same handleImageLoad path (reset + redetect).
-  const [isWindowDragging, setIsWindowDragging] = useState(false);
-  const windowDragDepthRef = useRef(0);
-
   const handleWindowDroppedFile = useCallback(
     (file: File) => {
       if (!file.type.startsWith('image/')) {
@@ -446,60 +374,52 @@ export default function Home() {
     [showToast, handleImageLoad, t]
   );
 
-  useEffect(() => {
-    const handleDragEnter = (e: DragEvent) => {
-      if (!e.dataTransfer?.types.includes('Files')) return;
-      e.preventDefault();
-      windowDragDepthRef.current += 1;
-      setIsWindowDragging(true);
-    };
+  const { isDraggingOver: isWindowDragging } = useWindowFileDrop(
+    !isProcessing,
+    handleWindowDroppedFile
+  );
 
-    const handleDragOver = (e: DragEvent) => {
-      if (!e.dataTransfer?.types.includes('Files')) return;
-      e.preventDefault();
-    };
-
-    const handleDragLeave = (e: DragEvent) => {
-      if (!e.dataTransfer?.types.includes('Files')) return;
-      e.preventDefault();
-      windowDragDepthRef.current = Math.max(0, windowDragDepthRef.current - 1);
-      if (windowDragDepthRef.current === 0) {
-        setIsWindowDragging(false);
+  // Model load (first-ever use, can take seconds) and face detection
+  // (usually well under a second) share one overlay so a cold load's
+  // "loading model" phase crossfades straight into "detecting faces"
+  // instead of one modal unmounting and another mounting. Fast operations
+  // (e.g. redetect on an already-optimized image) can finish in well under
+  // 150ms — showing the overlay for that long reads as a flash/glitch, so
+  // it's gated behind a show-delay and a minimum-visible-duration once it
+  // does appear.
+  const overlayActive = modelLoadingState.isLoading || (isProcessing && !!processingMessage);
+  const showLoadingOverlay = useDelayedVisibility(overlayActive, 150, 500);
+  const loadingOverlayContent = modelLoadingState.isLoading
+    ? {
+        icon: '🧠',
+        title: t.modelLoading.title,
+        hint: modelLoadingState.phase
+          ? (modelLoadingState.phase === 'wasm' ? t.modelLoading.phaseWasm : t.modelLoading.phaseModel)
+          : t.modelLoading.subtitle,
+        tip: t.modelLoading.tip,
       }
-    };
+    : {
+        icon: '🔍',
+        title: processingMessage,
+        hint: processingMessage === t.processing.shrinking ? t.processing.hintShrinking : t.processing.hintDefault,
+      };
 
-    const handleDrop = (e: DragEvent) => {
-      if (!e.dataTransfer?.types.includes('Files')) return;
-      e.preventDefault();
-      windowDragDepthRef.current = 0;
-      setIsWindowDragging(false);
-
-      if (isProcessing) return;
-
-      const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
-        handleWindowDroppedFile(files[0]);
-      }
-    };
-
-    window.addEventListener('dragenter', handleDragEnter);
-    window.addEventListener('dragover', handleDragOver);
-    window.addEventListener('dragleave', handleDragLeave);
-    window.addEventListener('drop', handleDrop);
-
-    return () => {
-      window.removeEventListener('dragenter', handleDragEnter);
-      window.removeEventListener('dragover', handleDragOver);
-      window.removeEventListener('dragleave', handleDragLeave);
-      window.removeEventListener('drop', handleDrop);
-    };
-  }, [isProcessing, handleWindowDroppedFile]);
+  // Repositions the active face's emoji while it's being dragged on the canvas
+  const handleRepositionActiveEmoji = useCallback(
+    (patch: Partial<EmojiReplacement>) => {
+      setReplacements((prev) =>
+        prev.map((replacement) =>
+          replacement.faceId === activeReplacementId ? { ...replacement, ...patch } : replacement
+        )
+      );
+    },
+    [activeReplacementId]
+  );
 
   // Handle emoji selection
   const handleEmojiSelect = useCallback(
     (emoji: string) => {
       setSelectedEmoji(emoji);
-      setIsEmojiPickerOpen(false);
     },
     []
   );
@@ -510,12 +430,15 @@ export default function Home() {
       if (!selectedEmoji) {
         // Guide the user to pick an emoji first instead of failing silently
         showToast(t.toasts.pickEmojiFirst);
-        setIsEmojiPickerOpen(true);
         return;
       }
 
       const face = faces.find((f) => f.id === faceId);
       if (!face) return;
+
+      // Clicking a face makes it the "active" one, so its emoji can be
+      // dragged into position on the canvas right away.
+      setActiveReplacementId(faceId);
 
       // Re-clicking a face that already has this exact emoji is a no-op —
       // skip it so it doesn't waste an undo step or a CDN preload.
@@ -552,11 +475,6 @@ export default function Home() {
                 faceId,
                 emoji: selectedEmoji,
                 emojiUrl: result.url,
-                scale: emojiSettings.scale,
-                opacity: emojiSettings.opacity,
-                flipX: emojiSettings.flipX,
-                flipY: emojiSettings.flipY,
-                isCustom: false,
               },
             ];
           }
@@ -565,7 +483,7 @@ export default function Home() {
         // Fallback will handle it gracefully
       }
     },
-    [selectedEmoji, faces, replacements, emojiSettings, showToast, pushHistory, t]
+    [selectedEmoji, faces, replacements, showToast, pushHistory, t]
   );
 
   // Apply to all faces: preload the emoji once, then build all replacements
@@ -590,15 +508,10 @@ export default function Home() {
           faceId: face.id,
           emoji: selectedEmoji,
           emojiUrl: result.url,
-          scale: emojiSettings.scale,
-          opacity: emojiSettings.opacity,
-          flipX: emojiSettings.flipX,
-          flipY: emojiSettings.flipY,
-          isCustom: false,
         };
       });
     });
-  }, [selectedEmoji, faces, emojiSettings, pushHistory]);
+  }, [selectedEmoji, faces, pushHistory]);
 
   // Reset all replacements (undoable via toast, or Ctrl/Cmd+Z)
   const handleReset = useCallback(() => {
@@ -609,24 +522,6 @@ export default function Home() {
     setActiveReplacementId(null);
     showToast(t.toasts.resetCleared, { label: t.common.undo, handler: handleUndo });
   }, [replacements, pushHistory, showToast, handleUndo, t]);
-
-  const handleInspectFace = useCallback((faceId: string) => {
-    const target = replacements.find((replacement) => replacement.faceId === faceId);
-    if (!target) {
-      showToast(t.toasts.replaceFirstToInspect);
-      return;
-    }
-
-    setActiveReplacementId(faceId);
-    setIsEmojiPickerOpen(false);
-
-    if (typeof window !== 'undefined') {
-      requestAnimationFrame(() => {
-        const badge = document.querySelector<HTMLButtonElement>(`[data-face-badge="${faceId}"]`);
-        badge?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-    }
-  }, [replacements, showToast, t]);
 
   // Re-detect faces with new settings (clears replacements, undoable via toast)
   const handleRedetect = useCallback(async () => {
@@ -702,7 +597,7 @@ export default function Home() {
       }
 
       const offset = { x: replacement.offsetX ?? 0, y: replacement.offsetY ?? 0 };
-      drawEmojiReplacement(ctx, face.box, offset, replacement, emojiImage);
+      drawEmojiReplacement(ctx, face.box, offset, replacement, emojiSize, emojiImage);
     });
 
     // Export after all emojis are drawn
@@ -729,14 +624,193 @@ export default function Home() {
         showToast(t.toasts.exportSuccess);
       }, 'image/png');
     });
-  }, [image, faces, replacements, showToast, t]);
+  }, [image, faces, replacements, emojiSize, showToast, t]);
+
+  // Clear everything and go back to the empty (upload) state
+  const handleNewPhoto = useCallback(() => {
+    setImage(null);
+    setOptimizedImage(null);
+    setFaces([]);
+    setReplacements([]);
+    setSelectedEmoji(null);
+    setActiveReplacementId(null);
+    setError(null);
+    setHasShownFaces(false);
+    lastFaceCountRef.current = 0;
+    clearHistory();
+  }, [clearHistory]);
+
+  // Derived, single-focus layout states
+  const isEmpty = !image;
+  // Once there's an image, stay in the editing layout shell even while
+  // isProcessing (redetect/replace-image keep the canvas mounted, with the
+  // global LoadingOverlay layered on top).
+  const isEditing = !!image;
+
+  const iconButtonsCompact = (
+    <>
+      <IconButton onClick={handleUndo} disabled={!canUndo} aria-label={t.actions.undoTitle} title={t.actions.undoTitle}>
+        <Undo size={18} />
+      </IconButton>
+      <IconButton onClick={handleRedo} disabled={!canRedo} aria-label={t.actions.redoTitle} title={t.actions.redoTitle}>
+        <Redo size={18} />
+      </IconButton>
+      <IconButton onClick={handleRedetect} aria-label={t.actions.redetect} title={t.actions.redetect}>
+        <Redetect size={18} />
+      </IconButton>
+      <IconButton
+        onClick={handleReset}
+        disabled={replacements.length === 0}
+        aria-label={t.actions.reset}
+        title={t.actions.reset}
+      >
+        <Clear size={18} />
+      </IconButton>
+      <IconButton onClick={handleNewPhoto} aria-label={t.actions.newPhoto} title={t.actions.newPhoto}>
+        <NewPhoto size={18} />
+      </IconButton>
+    </>
+  );
+
+  const iconButtonsLabeled = (
+    <>
+      <IconButton
+        onClick={handleUndo}
+        disabled={!canUndo}
+        aria-label={t.actions.undoTitle}
+        title={t.actions.undoTitle}
+        label={t.actions.undoLabel}
+      >
+        <Undo size={18} />
+      </IconButton>
+      <IconButton
+        onClick={handleRedo}
+        disabled={!canRedo}
+        aria-label={t.actions.redoTitle}
+        title={t.actions.redoTitle}
+        label={t.actions.redoLabel}
+      >
+        <Redo size={18} />
+      </IconButton>
+      <IconButton
+        onClick={handleRedetect}
+        aria-label={t.actions.redetect}
+        title={t.actions.redetect}
+        label={t.actions.redetectLabel}
+      >
+        <Redetect size={18} />
+      </IconButton>
+      <IconButton
+        onClick={handleReset}
+        disabled={replacements.length === 0}
+        aria-label={t.actions.reset}
+        title={t.actions.reset}
+        label={t.actions.resetLabel}
+      >
+        <Clear size={18} />
+      </IconButton>
+      <IconButton
+        onClick={handleNewPhoto}
+        aria-label={t.actions.newPhoto}
+        title={t.actions.newPhoto}
+        label={t.actions.newPhotoLabel}
+      >
+        <NewPhoto size={18} />
+      </IconButton>
+    </>
+  );
+
+  // Redetect briefly sets faces to [] while a new detection is in flight.
+  // Gating this block on hasShownFaces (not faces.length directly) and
+  // freezing the displayed count during that gap keeps the right column's
+  // layout height stable instead of collapsing/reappearing as a jitter.
+  useEffect(() => {
+    if (faces.length > 0) {
+      lastFaceCountRef.current = faces.length;
+    }
+  }, [faces]);
+  const displayedFaceCount = faces.length > 0 ? faces.length : lastFaceCountRef.current;
+
+  const progressText = hasShownFaces && (
+    <div className="text-center space-y-1">
+      <span className="text-lg font-black text-gray-900 dark:text-gray-100 block">
+        {t.status.facesDetected(displayedFaceCount)}
+      </span>
+      {replacements.length > 0 && (
+        <span
+          className={`text-sm font-bold block ${
+            replacements.length === faces.length
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-blue-600 dark:text-blue-400'
+          }`}
+        >
+          {replacements.length === faces.length ? t.status.allReplacedLabel : t.status.replacedLabel}{' '}
+          <span className="text-gray-500 dark:text-gray-500 text-xs">
+            {t.status.progressCount(replacements.length, faces.length)}
+          </span>
+        </span>
+      )}
+    </div>
+  );
+
+  // Mobile (<768) compact single-line counterpart to progressText above —
+  // same hasShownFaces/displayedFaceCount/replacements data, just laid out on
+  // one line instead of the stacked block used for the wider layouts.
+  const compactProgressText = hasShownFaces && (
+    <div className="md:hidden text-center text-xs font-bold text-gray-700 dark:text-gray-300">
+      {t.status.facesDetected(displayedFaceCount)}
+      {replacements.length > 0 && (
+        <span
+          className={`ml-1 ${
+            replacements.length === faces.length
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-blue-600 dark:text-blue-400'
+          }`}
+        >
+          · {replacements.length === faces.length ? t.status.allReplacedLabel : t.status.replacedLabel}{' '}
+          <span className="text-gray-500 dark:text-gray-500">
+            {t.status.progressCount(replacements.length, faces.length)}
+          </span>
+        </span>
+      )}
+    </div>
+  );
+
+  const renderPrimaryButtons = (layout: 'row' | 'stack') => (
+    <div className={layout === 'row' ? 'flex gap-2' : 'flex flex-col gap-2'}>
+      <m.button
+        onClick={handleApplyToAll}
+        whileHover={selectedEmoji ? { scale: 1.03 } : {}}
+        whileTap={selectedEmoji ? { scale: 0.96 } : {}}
+        disabled={!selectedEmoji}
+        className={`${layout === 'row' ? 'flex-1 whitespace-nowrap' : ''} justify-center px-4 py-2.5 text-sm btn-duo ${
+          selectedEmoji ? 'btn-secondary' : 'btn-disabled'
+        }`}
+        title={!selectedEmoji ? t.actions.applyAllTitleDisabled : ''}
+      >
+        <ApplyAll size={16} />
+        {t.actions.applyAll}
+        {replacements.length > 0 && <span className="sr-only"> {t.status.srReplacedCount(replacements.length)}</span>}
+      </m.button>
+      <m.button
+        onClick={handleExport}
+        whileHover={replacements.length > 0 ? { scale: 1.03 } : {}}
+        whileTap={replacements.length > 0 ? { scale: 0.96 } : {}}
+        disabled={replacements.length === 0}
+        className={`${
+          layout === 'row' ? 'flex-1 whitespace-nowrap px-4 py-2.5 text-sm' : 'w-full px-4 py-3 text-base'
+        } justify-center btn-duo ${replacements.length > 0 ? 'btn-primary' : 'btn-disabled'}`}
+        title={replacements.length === 0 ? t.actions.downloadTitleDisabled : ''}
+      >
+        <Download size={16} />
+        {t.actions.download}
+      </m.button>
+    </div>
+  );
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-6 px-4 flex flex-col">
-      {/* Model Loading Modal */}
-      <ModelLoadingModal state={modelLoadingState} />
-
+    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex flex-col">
       {/* Whole-window drag overlay */}
       <AnimatePresence>
         {isWindowDragging && (
@@ -754,18 +828,9 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Processing Overlay */}
+      {/* Loading Overlay — model load + face detection, see overlayActive above */}
       <AnimatePresence>
-        {isProcessing && processingMessage && (
-          <ProcessingOverlay
-            message={processingMessage}
-            hint={
-              processingMessage === t.processing.shrinking
-                ? t.processing.hintShrinking
-                : t.processing.hintDefault
-            }
-          />
-        )}
+        {showLoadingOverlay && <LoadingOverlay {...loadingOverlayContent} />}
       </AnimatePresence>
 
       {/* Toast Notification */}
@@ -777,374 +842,138 @@ export default function Home() {
         onAction={toastAction?.handler}
       />
 
-      <div
-        className="max-w-3xl mx-auto flex-1 w-full"
-        style={{
-          paddingBottom: inspectorPadding,
-          transition: 'padding-bottom 0.3s ease',
-        }}
-      >
-        {/* Header - Duolingo Style with Privacy Badge */}
-        <m.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative text-center mb-6 flex flex-col items-center justify-center"
-        >
-          {/* Language toggle */}
-          <button
-            type="button"
-            onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-            className="absolute right-0 top-0 text-xs font-bold px-2.5 py-1 rounded-full bg-white/80 dark:bg-slate-800/80 border border-gray-300 dark:border-slate-600 text-gray-600 dark:text-gray-300 shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors"
-            aria-label={t.languageToggle.aria}
-          >
-            {t.languageToggle.switchToLabel}
-          </button>
+      <AppHeader />
 
-          {/* Logo */}
-          <m.div
-            animate={{ rotate: [0, -10, 10, -10, 0] }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-block mb-2"
-          >
-            <div className="relative bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-lg hover:shadow-xl transition-shadow border-b-4 border-gray-200 dark:border-slate-700">
-              <NextImage
-                src="/kaonashi.jpg"
-                alt="カオナシ"
-                width={80}
-                height={80}
-                className="w-16 h-16 md:w-20 md:h-20 object-contain rounded-xl"
-              />
+      <main className="flex-1 flex flex-col w-full">
+        {/* Empty state — centered upload card */}
+        {isEmpty && (
+          <div className="flex-1 flex items-center justify-center px-4 py-6 md:py-10">
+            <div className="max-w-xl w-full">
+              <ImageUploader onImageLoad={handleImageLoad} onError={showToast} disabled={isProcessing} />
             </div>
-          </m.div>
+          </div>
+        )}
 
-          {/* Title */}
-          <h1 className="text-3xl md:text-4xl font-black text-gray-800 dark:text-gray-100 drop-shadow-lg tracking-tight shimmer-text bg-clip-text">
-            {t.header.title}
-          </h1>
-
-          {/* Subtitle with privacy promise */}
-          <m.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-2 flex flex-wrap items-center justify-center gap-2 px-4"
-          >
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full shadow-sm text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              {t.header.privacyBadge}
-            </span>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              {t.header.tagline}
-            </p>
-          </m.div>
-        </m.div>
-
-        {/* Main content */}
-        <div className="space-y-4">
-          {/* Settings Panel - before upload, and again once faces are detected */}
-          {(!image || faces.length > 0) && !isProcessing && (
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <SettingsPanel
-                detectionSettings={detectionSettings}
-                onEmojiChange={setEmojiSettings}
-                onDetectionChange={setDetectionSettings}
-                isOpen={isSettingsPanelOpen}
-                onToggle={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
-              />
-            </m.div>
-          )}
-
-          {/* Image uploader */}
-          {!image && (
-            <ImageUploader
-              onImageLoad={handleImageLoad}
-              onError={showToast}
-              disabled={isProcessing}
-            />
-          )}
-
-          {/* Canvas preview */}
-          {image && !isProcessing && (
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <FaceCanvas
-                image={image}
-                faces={faces}
-                replacements={replacements}
-                onFaceClick={handleFaceClick}
-                onInspectFace={handleInspectFace}
-                activeReplacementId={activeReplacementId}
-                onRepositionActiveEmoji={handleInspectorUpdate}
-                onBeginDragReposition={pushHistory}
-              />
-            </m.div>
-          )}
-
-          {/* Status message - Error */}
-          {image && error && (
-            <m.div
-              role="alert"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-5 text-center border-4 border-orange-400 dark:border-orange-500"
-            >
-              <div className="text-4xl mb-2">⚠️</div>
-              <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">{t.error.title}</p>
-              <p className="text-gray-600 dark:text-gray-300">{error}</p>
-            </m.div>
-          )}
-
-          {/* Status message - Success with progress and secondary actions */}
-          {image && faces.length > 0 && !isProcessing && (
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-sm p-3 text-center border-2 border-gray-300 dark:border-slate-600"
-            >
-              <div className="space-y-2">
-                {/* Detection result */}
-                <span className="text-2xl font-black text-gray-900 dark:text-gray-100 block">
-                  {t.status.facesDetected(faces.length)}
-                </span>
-
-                {/* Replacement progress */}
-                {replacements.length > 0 && (
-                  <m.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="text-sm font-bold"
-                  >
-                    {replacements.length === faces.length ? (
-                      <span className="text-green-600 dark:text-green-400">
-                        {t.status.allReplacedLabel} <span className="text-gray-500 dark:text-gray-500 text-xs">{t.status.progressCount(replacements.length, faces.length)}</span>
-                      </span>
-                    ) : (
-                      <span className="text-blue-600 dark:text-blue-400">
-                        {t.status.replacedLabel} <span className="text-gray-500 dark:text-gray-500 text-xs">{t.status.progressCount(replacements.length, faces.length)}</span>
-                      </span>
-                    )}
-                  </m.div>
-                )}
-              </div>
-
-              {/* Secondary action buttons */}
-              <div className="flex flex-wrap gap-2 justify-center mt-3">
-                <m.button
-                  onClick={handleUndo}
-                  disabled={!canUndo}
-                  whileHover={canUndo ? { scale: 1.02 } : {}}
-                  whileTap={canUndo ? { scale: 0.98 } : {}}
-                  className={`text-sm px-3 py-1.5 btn-duo ${canUndo ? 'btn-ghost' : 'btn-disabled'}`}
-                  title={t.actions.undoTitle}
+        {/* Editing state — canvas is the main visual. Stays mounted during
+            redetect/replace-image processing too (overlay rendered above). */}
+        {isEditing && (
+          <div className="flex-1 w-full lg:max-w-6xl mx-auto px-4 py-4 md:max-w-2xl lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(320px,28vw,380px)] lg:gap-6">
+            {/* Canvas column */}
+            <div className={`flex flex-col gap-4 ${MOBILE_TOOLBAR_SAFE_AREA} md:pb-4`}>
+              {compactProgressText}
+              {error ? (
+                <m.div
+                  role="alert"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-5 text-center border-4 border-orange-400 dark:border-orange-500"
                 >
-                  {t.actions.undo}
-                </m.button>
-                <m.button
-                  onClick={handleRedo}
-                  disabled={!canRedo}
-                  whileHover={canRedo ? { scale: 1.02 } : {}}
-                  whileTap={canRedo ? { scale: 0.98 } : {}}
-                  className={`text-sm px-3 py-1.5 btn-duo ${canRedo ? 'btn-ghost' : 'btn-disabled'}`}
-                  title={t.actions.redoTitle}
+                  <div className="text-4xl mb-2">⚠️</div>
+                  <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">{t.error.title}</p>
+                  <p className="text-gray-600 dark:text-gray-300">{error}</p>
+                </m.div>
+              ) : (
+                <m.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={canvasEntranceSpring}
                 >
-                  {t.actions.redo}
-                </m.button>
-                <m.button
-                  onClick={handleRedetect}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="text-sm px-3 py-1.5 btn-duo btn-secondary"
-                >
-                  {t.actions.redetect}
-                </m.button>
-                <m.button
-                  onClick={() => {
-                    setImage(null);
-                    setOptimizedImage(null);
-                    setFaces([]);
-                    setReplacements([]);
-                    setSelectedEmoji(null);
-                    setActiveReplacementId(null);
-                    setIsEmojiPickerOpen(false);
-                    setError(null);
-                    clearHistory();
-                  }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="text-sm px-3 py-1.5 btn-duo btn-ghost"
-                >
-                  {t.actions.newPhoto}
-                </m.button>
-              </div>
-            </m.div>
-          )}
+                  <FaceCanvas
+                    image={image}
+                    faces={faces}
+                    replacements={replacements}
+                    emojiScale={emojiSize}
+                    onFaceSelect={handleFaceClick}
+                    activeReplacementId={activeReplacementId}
+                    onRepositionActiveEmoji={handleRepositionActiveEmoji}
+                    onBeginDragReposition={pushHistory}
+                  />
+                </m.div>
+              )}
 
-          {/* Emoji selector */}
-          {image && faces.length > 0 && !isProcessing && (
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <EmojiSelector
-                onEmojiSelect={handleEmojiSelect}
-                selectedEmoji={selectedEmoji}
-                isOpen={isEmojiPickerOpen}
-                onToggle={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-                replacedCount={replacements.length}
-                totalFaces={faces.length}
-              />
-            </m.div>
-          )}
+              {/* Medium breakpoint (768–1023): toolbar flows below the canvas as a card.
+                  Gated on hasShownFaces (not faces.length directly) so a redetect's
+                  brief faces=[] gap doesn't unmount/remount this and replay its
+                  entrance animation — it only truly mounts/unmounts at session
+                  boundaries (new photo / new image upload). */}
+              {hasShownFaces && (
+                <m.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={desktopColumnSpring}
+                  className="hidden md:flex lg:hidden flex-col gap-3 glass-card p-4"
+                >
+                  {progressText}
+                  <EmojiToolbar
+                    onEmojiSelect={handleEmojiSelect}
+                    selectedEmoji={selectedEmoji}
+                    emojiSize={emojiSize}
+                    onEmojiSizeChange={handleEmojiSizeChange}
+                  />
+                  {renderPrimaryButtons('row')}
+                  <div className="flex flex-wrap gap-2 justify-center pt-2 border-t border-gray-200/60 dark:border-slate-700/60">
+                    {iconButtonsCompact}
+                  </div>
+                </m.div>
+              )}
+            </div>
 
-          {/* Action buttons - Duolingo Style */}
-          {image && faces.length > 0 && !isProcessing && (
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-wrap gap-2 md:gap-3 justify-center"
-            >
-              <m.button
-                onClick={handleApplyToAll}
-                whileHover={selectedEmoji ? { scale: 1.05 } : {}}
-                whileTap={selectedEmoji ? { scale: 0.95 } : {}}
-                disabled={!selectedEmoji}
-                className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
-                  selectedEmoji ? 'btn-secondary' : 'btn-disabled'
-                }`}
-                title={!selectedEmoji ? t.actions.applyAllTitleDisabled : ''}
+            {/* Desktop/iPad landscape (>=1024): sticky right column — see
+                hasShownFaces note above the medium-breakpoint card. */}
+            {hasShownFaces && (
+              <m.div
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={desktopColumnSpring}
+                className="hidden lg:flex lg:flex-col lg:sticky lg:top-20 lg:self-start gap-4"
               >
-                <span className="text-lg md:text-xl">⚡</span>
-                {t.actions.applyAll}
-                {replacements.length > 0 && <span className="sr-only"> {t.status.srReplacedCount(replacements.length)}</span>}
-              </m.button>
-              <m.button
-                onClick={handleReset}
-                whileHover={replacements.length > 0 ? { scale: 1.05 } : {}}
-                whileTap={replacements.length > 0 ? { scale: 0.95 } : {}}
-                disabled={replacements.length === 0}
-                className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
-                  replacements.length > 0 ? 'btn-ghost' : 'btn-disabled'
-                }`}
-                title={replacements.length === 0 ? t.actions.resetTitleDisabled : ''}
-              >
-                <span className="text-lg md:text-xl">♻️</span>
-                {t.actions.reset}
-              </m.button>
-              <m.button
-                onClick={handleExport}
-                whileHover={replacements.length > 0 ? { scale: 1.05 } : {}}
-                whileTap={replacements.length > 0 ? { scale: 0.95 } : {}}
-                disabled={replacements.length === 0}
-                className={`px-4 py-2 md:px-6 md:py-3 text-sm md:text-base btn-duo ${
-                  replacements.length > 0 ? 'btn-primary' : 'btn-disabled'
-                }`}
-                title={replacements.length === 0 ? t.actions.downloadTitleDisabled : ''}
-              >
-                <span className="text-lg md:text-xl">📥</span>
-                {t.actions.download}
-              </m.button>
-            </m.div>
-          )}
-        </div>
-      </div>
-      <AnimatePresence>
-        {activeReplacement && !isProcessing && (
-          <m.div
-            key={activeReplacement.faceId}
-            ref={inspectorPanelRef}
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{
-              type: 'spring',
-              stiffness: 280,
-              damping: 30,
-            }}
-            className="pointer-events-none fixed inset-x-0 bottom-0 z-40"
-          >
-            <m.div
-              className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5"
-              drag="y"
-              dragControls={inspectorDragControls}
-              dragListener={false}
-              dragConstraints={{ top: 0, bottom: 320 }}
-              dragElastic={{ top: 0.15, bottom: 0.4 }}
-              dragMomentum={false}
-              dragSnapToOrigin
-              onDragEnd={handleInspectorDragEnd}
-              style={{ touchAction: 'none' }}
-            >
-              <m.button
-                type="button"
-                layout
-                onPointerDown={handleInspectorHandlePointerDown}
-                whileTap={{ scaleX: 1.05 }}
-                className="mb-2 mx-auto block h-1.5 w-12 rounded-full bg-white/70 dark:bg-slate-500 cursor-grab active:cursor-grabbing"
-                aria-label={t.inspector.dragHandleAria}
-              />
-              <div className="overflow-hidden rounded-[26px] border border-white/40 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl shadow-[0_20px_45px_-20px_rgba(15,23,42,0.45)]">
-                <EmojiInspector
-                  replacement={activeReplacement}
-                  defaultSettings={emojiSettings}
-                  label={activeFaceIndex >= 0 ? t.inspector.faceLabel(activeFaceIndex + 1) : t.inspector.faceFallback}
-                  onUpdate={handleInspectorUpdate}
-                  onBeginEdit={pushHistory}
-                  onResetToDefault={handleInspectorReset}
-                  onAdoptAsDefault={handleInspectorAdopt}
-                  onApplyToAll={handleInspectorApplyToAll}
-                  onClose={handleInspectorClose}
-                  className="bg-transparent border-none shadow-none p-5 md:p-6 space-y-5"
+                {progressText}
+                <EmojiToolbar
+                  onEmojiSelect={handleEmojiSelect}
+                  selectedEmoji={selectedEmoji}
+                  emojiSize={emojiSize}
+                  onEmojiSizeChange={handleEmojiSizeChange}
                 />
-              </div>
-            </m.div>
+                {renderPrimaryButtons('stack')}
+                <div className="flex flex-wrap gap-2 justify-center pt-2 border-t border-gray-200/60 dark:border-slate-700/60">
+                  {iconButtonsLabeled}
+                </div>
+              </m.div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Mobile docked toolbar (<768), editing state only — see hasShownFaces
+          note above the medium-breakpoint card. */}
+      <AnimatePresence>
+        {isEditing && hasShownFaces && (
+          <m.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={mobileToolbarSpring}
+            className="fixed inset-x-0 bottom-0 z-30 md:hidden bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-t border-gray-200/60 dark:border-slate-700/60 rounded-t-3xl px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] space-y-2"
+          >
+            <EmojiToolbar
+              onEmojiSelect={handleEmojiSelect}
+              selectedEmoji={selectedEmoji}
+              emojiSize={emojiSize}
+              onEmojiSizeChange={handleEmojiSizeChange}
+            />
+            {renderPrimaryButtons('row')}
+            <div className="flex flex-wrap gap-2 justify-center pt-1">{iconButtonsCompact}</div>
           </m.div>
         )}
       </AnimatePresence>
 
-      {/* Footer - Duolingo Style */}
-      <m.footer
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="mt-8 mb-6 text-center space-y-2 w-full max-w-3xl mx-auto"
-      >
-        {/* Credits and Copyright */}
-        <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
-          Made with ❤️ by{' '}
-          <a
-            href="https://github.com/BazingaOrg"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold transition-colors hover:underline"
-          >
-            @Bazinga
-          </a>
-        </p>
-        <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
-          <a
-            href="https://github.com/BazingaOrg/no-face"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold transition-colors hover:underline"
-          >
-            View Source
-          </a>
-          <span> · </span>
-          <span className="font-black">カオナシ</span>
-        </p>
-        <p className="text-gray-500 dark:text-gray-500 text-xs">
-          © {new Date().getFullYear()} All rights reserved.
-        </p>
-      </m.footer>
+      {/* On mobile editing state, the fixed docked toolbar overlays the
+          bottom of the viewport, so reserve the same safe-area padding here
+          as the canvas column — otherwise the footer scrolls to the bottom
+          only to sit right behind the toolbar. */}
+      <div className={isEditing && hasShownFaces ? `${MOBILE_TOOLBAR_SAFE_AREA} md:pb-0` : ''}>
+        <AppFooter />
+      </div>
     </div>
     </MotionConfig>
   );

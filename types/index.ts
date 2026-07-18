@@ -22,28 +22,15 @@ export interface EmojiReplacement {
   faceId: string;
   emoji: string;
   emojiUrl: string;
-  scale?: number;
-  opacity?: number;
-  flipX?: boolean;
-  flipY?: boolean;
   // User-dragged position adjustment, in original-image pixels, relative to
   // the emoji's auto-centered position. Callers scale this for display.
   offsetX?: number;
   offsetY?: number;
-  isCustom?: boolean;
 }
 
 // Face detection settings
 export interface DetectionSettings {
   minConfidence: number; // 0-1, the only user-adjustable detection parameter
-}
-
-// Emoji settings
-export interface EmojiSettings {
-  scale: number; // 0.5-2.0, relative to face size
-  opacity: number; // 0.5-1.0, emoji transparency
-  flipX: boolean; // horizontal flip
-  flipY: boolean; // vertical flip
 }
 
 // Model loading state (indeterminate: no fabricated percentage). `phase`

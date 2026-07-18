@@ -18,17 +18,14 @@ interface FaceCanvasProps {
   image: HTMLImageElement | null;
   faces: DetectedFace[];
   replacements: EmojiReplacement[];
-  onFaceClick: (faceId: string) => void;
-  onInspectFace?: (faceId: string) => void;
+  emojiScale: number;
+  onFaceSelect: (faceId: string) => void;
   activeReplacementId?: string | null;
   // Called while the active (inspected) face's emoji is being dragged on
   // the canvas; only that face can be repositioned this way.
   onRepositionActiveEmoji?: (patch: Partial<EmojiReplacement>) => void;
   // Called once, right when a drag first crosses the threshold — lets the
   // caller snapshot undo history before the first reposition patch lands.
-  // Also reused as the gesture-start hook for wheel/pinch zoom (see below):
-  // any of these continuous gestures must push history exactly once per
-  // gesture, not once per frame.
   onBeginDragReposition?: () => void;
 }
 
@@ -40,19 +37,6 @@ const DRAG_THRESHOLD_PX = 4;
 // crowded — they'd otherwise overlap or sit edge-to-edge, so both collapse
 // to small dots until hovered/active.
 const BADGE_CROWD_DISTANCE_PX = 90;
-
-// Scale bounds, matching the inspector's slider (components/EmojiInspector.tsx)
-const MIN_EMOJI_SCALE = 0.5;
-const MAX_EMOJI_SCALE = 2.0;
-// Multiplicative step per wheel notch (~5%)
-const WHEEL_SCALE_STEP = 0.05;
-// A wheel "gesture" is a burst of notches; a gap longer than this starts a
-// new gesture, so pushHistory fires once per burst rather than per notch.
-const WHEEL_GESTURE_GAP_MS = 400;
-
-function clampEmojiScale(scale: number): number {
-  return Math.min(Math.max(scale, MIN_EMOJI_SCALE), MAX_EMOJI_SCALE);
-}
 
 interface DragState {
   pointerId: number;
@@ -85,8 +69,8 @@ export default function FaceCanvas({
   image,
   faces,
   replacements,
-  onFaceClick,
-  onInspectFace,
+  emojiScale,
+  onFaceSelect,
   activeReplacementId,
   onRepositionActiveEmoji,
   onBeginDragReposition,
@@ -102,7 +86,7 @@ export default function FaceCanvas({
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   // Bumped when an emoji image finishes loading so the draw effect re-runs
   const [emojiLoadTick, setEmojiLoadTick] = useState(0);
-  const { getBadgeRefCallback, getBadgePosition } = useFaceBadgeLayout({
+  const { getBadgePosition } = useFaceBadgeLayout({
     canvasWidth: canvasSize.width,
     canvasHeight: canvasSize.height,
     scale,
@@ -152,7 +136,7 @@ export default function FaceCanvas({
 
     const fitToContainer = () => {
       const maxWidth = container.clientWidth || 800; // Fallback to 800px if container not ready
-      const maxHeight = Math.min(window.innerHeight * 0.7, 800) || 600; // Max 70vh or 800px, floor for degenerate viewports
+      const maxHeight = Math.min(window.innerHeight * 0.8, 900) || 600; // Max 80vh or 900px, floor for degenerate viewports
 
       // Calculate scale to fit container
       const scaleX = maxWidth / image.naturalWidth;
@@ -275,13 +259,13 @@ export default function FaceCanvas({
 
       // Empty URL or a known-failed CDN load → native emoji glyph
       if (!url || hasEmojiImageFailed(url)) {
-        drawEmojiReplacement(ctx, box, offset, replacement, null);
+        drawEmojiReplacement(ctx, box, offset, replacement, emojiScale, null);
         return;
       }
 
       const cachedImage = getLoadedEmojiImage(url);
       if (cachedImage) {
-        drawEmojiReplacement(ctx, box, offset, replacement, cachedImage);
+        drawEmojiReplacement(ctx, box, offset, replacement, emojiScale, cachedImage);
         return;
       }
 
@@ -300,6 +284,7 @@ export default function FaceCanvas({
     faces,
     replacements,
     scale,
+    emojiScale,
     canvasSize.width,
     canvasSize.height,
     activeReplacementId,
@@ -323,59 +308,16 @@ export default function FaceCanvas({
     if (!face || !replacement) return null;
 
     const { box, offset } = toDisplaySpace(face, replacement, scale);
-    return getEmojiScreenRect(box, offset, replacement.scale ?? 1);
-  }, [activeReplacementId, faceMap, replacementMap, scale]);
+    return getEmojiScreenRect(box, offset, emojiScale);
+  }, [activeReplacementId, faceMap, replacementMap, scale, emojiScale]);
 
   const dragStateRef = useRef<DragState | null>(null);
   // Set once a drag crosses the threshold, so the click that follows
   // pointerup is suppressed (a drag shouldn't also re-apply the emoji)
   const justDraggedRef = useRef(false);
 
-  // Active pointers on the canvas, keyed by pointerId — used to detect a
-  // second finger landing (pinch) while a drag is in progress.
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const pinchStateRef = useRef<{ startDistance: number; baseScale: number } | null>(null);
-  // Timestamp of the last wheel notch, so a burst of notches counts as one
-  // gesture (one pushHistory) rather than one per notch.
-  const lastWheelTimeRef = useRef(0);
-
-  const getActiveReplacementScale = useCallback(() => {
-    if (!activeReplacementId) return 1;
-    return replacementMap.get(activeReplacementId)?.scale ?? 1;
-  }, [activeReplacementId, replacementMap]);
-
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!onRepositionActiveEmoji || !activeReplacementId) return;
-
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-    // A second finger landing while one is already down starts a pinch —
-    // cancel any in-progress drag reposition and switch modes.
-    if (pointersRef.current.size === 2) {
-      const points = Array.from(pointersRef.current.values());
-      const startDistance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
-      if (startDistance > 0) {
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {
-          // ignore — pinch will just not track this pointer's capture
-        }
-        if (dragStateRef.current) {
-          if (e.currentTarget.hasPointerCapture(dragStateRef.current.pointerId)) {
-            e.currentTarget.releasePointerCapture(dragStateRef.current.pointerId);
-          }
-          dragStateRef.current = null;
-        }
-        onBeginDragReposition?.();
-        pinchStateRef.current = {
-          startDistance,
-          baseScale: getActiveReplacementScale(),
-        };
-      }
-      return;
-    }
-
-    if (pointersRef.current.size > 2) return;
 
     const rect = getActiveEmojiRect();
     if (!rect) return;
@@ -409,19 +351,6 @@ export default function FaceCanvas({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (pointersRef.current.has(e.pointerId)) {
-      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    }
-
-    if (pinchStateRef.current && pointersRef.current.size >= 2) {
-      const points = Array.from(pointersRef.current.values()).slice(0, 2);
-      const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
-      const { startDistance, baseScale } = pinchStateRef.current;
-      const nextScale = clampEmojiScale(baseScale * (distance / startDistance));
-      scheduleReposition({ scale: nextScale });
-      return;
-    }
-
     const drag = dragStateRef.current;
     if (!drag || drag.pointerId !== e.pointerId) {
       // Not dragging: show a grab cursor when hovering the draggable emoji
@@ -459,12 +388,6 @@ export default function FaceCanvas({
   };
 
   const endDrag = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    pointersRef.current.delete(e.pointerId);
-
-    if (pinchStateRef.current && pointersRef.current.size < 2) {
-      pinchStateRef.current = null;
-    }
-
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
@@ -478,53 +401,6 @@ export default function FaceCanvas({
     }
     dragStateRef.current = null;
   };
-
-  // Wheel-to-zoom the active emoji. Attached as a native, non-passive
-  // listener (rather than the `onWheel` JSX prop) because React registers
-  // synthetic wheel handlers as passive by default — preventDefault() there
-  // is silently ignored, and page scroll wouldn't actually be blocked.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const onCanvasWheel = (e: WheelEvent) => {
-      if (!onRepositionActiveEmoji || !activeReplacementId) return;
-
-      const rect = getActiveEmojiRect();
-      if (!rect) return;
-
-      const canvasRect = canvas.getBoundingClientRect();
-      const x = e.clientX - canvasRect.left;
-      const y = e.clientY - canvasRect.top;
-      if (x < rect.x || x > rect.x + rect.width || y < rect.y || y > rect.y + rect.height) {
-        return;
-      }
-
-      e.preventDefault();
-
-      const now = performance.now();
-      if (now - lastWheelTimeRef.current > WHEEL_GESTURE_GAP_MS) {
-        onBeginDragReposition?.();
-      }
-      lastWheelTimeRef.current = now;
-
-      const direction = e.deltaY > 0 ? -1 : 1;
-      const nextScale = clampEmojiScale(
-        getActiveReplacementScale() * (1 + direction * WHEEL_SCALE_STEP)
-      );
-      scheduleReposition({ scale: nextScale });
-    };
-
-    canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
-    return () => canvas.removeEventListener('wheel', onCanvasWheel);
-  }, [
-    onRepositionActiveEmoji,
-    activeReplacementId,
-    getActiveEmojiRect,
-    onBeginDragReposition,
-    getActiveReplacementScale,
-    scheduleReposition,
-  ]);
 
   // Handle canvas click to select face
   // No selected-emoji guard: the parent decides how to respond (e.g. prompt to pick one)
@@ -554,7 +430,7 @@ export default function FaceCanvas({
         y >= faceY &&
         y <= faceY + faceHeight
       ) {
-        onFaceClick(face.id);
+        onFaceSelect(face.id);
         break;
       }
     }
@@ -594,7 +470,7 @@ export default function FaceCanvas({
           }}
         />
 
-        {onInspectFace && canvasSize.width > 0 && canvasSize.height > 0 && (
+        {faces.length > 0 && canvasSize.width > 0 && canvasSize.height > 0 && (
           <div className="absolute inset-0 pointer-events-none">
             {faces.map((face, index) => {
               const hasReplacement = replacementMap.has(face.id);
@@ -620,11 +496,10 @@ export default function FaceCanvas({
                 <button
                   key={face.id}
                   type="button"
-                  ref={getBadgeRefCallback(face.id)}
                   data-face-badge={face.id}
                   onClick={(event) => {
                     event.stopPropagation();
-                    onInspectFace(face.id);
+                    onFaceSelect(face.id);
                   }}
                   onMouseEnter={() => setHoveredBadgeId(face.id)}
                   onMouseLeave={() => setHoveredBadgeId((current) => (current === face.id ? null : current))}
@@ -638,12 +513,7 @@ export default function FaceCanvas({
                   title={hasReplacement ? t.badges.adjustTip : t.badges.replaceFirstTip}
                   aria-label={t.badges.faceAria(index + 1, hasReplacement)}
                 >
-                  {!isCollapsed && (
-                    <>
-                      <span>{t.badges.faceLabel(index + 1)}</span>
-                      {hasReplacement && <span aria-hidden>⚙️</span>}
-                    </>
-                  )}
+                  {!isCollapsed && <span>{t.badges.faceLabel(index + 1)}</span>}
                 </button>
               );
             })}

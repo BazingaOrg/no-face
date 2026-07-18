@@ -92,7 +92,8 @@ export function getEmojiScreenRect(
  *              (callers pre-scale it for display canvases)
  * @param offset - User-dragged position offset, in the same coordinate
  *                 space as `box` (callers pre-scale this too)
- * @param replacement - Replacement carrying emoji character and transforms
+ * @param replacement - Replacement carrying the emoji character
+ * @param globalScale - Global emoji size multiplier (shared by every face)
  * @param image - Preloaded Twemoji bitmap; pass null to render the native
  *                emoji glyph instead (CDN failure fallback)
  */
@@ -100,19 +101,16 @@ export function drawEmojiReplacement(
   ctx: CanvasRenderingContext2D,
   box: { x: number; y: number; width: number; height: number },
   offset: { x: number; y: number },
-  replacement: Pick<EmojiReplacement, 'emoji' | 'scale' | 'opacity' | 'flipX' | 'flipY'>,
+  replacement: Pick<EmojiReplacement, 'emoji'>,
+  globalScale: number,
   image: HTMLImageElement | null
 ): void {
-  const rect = getEmojiScreenRect(box, offset, replacement.scale ?? 1);
+  const rect = getEmojiScreenRect(box, offset, globalScale);
   const centerX = rect.x + rect.width / 2;
   const centerY = rect.y + rect.height / 2;
 
-  const previousAlpha = ctx.globalAlpha;
-  ctx.globalAlpha = replacement.opacity ?? 1;
-
   ctx.save();
   ctx.translate(centerX, centerY);
-  ctx.scale(replacement.flipX ? -1 : 1, replacement.flipY ? -1 : 1);
 
   if (image) {
     ctx.drawImage(
@@ -132,5 +130,4 @@ export function drawEmojiReplacement(
   }
 
   ctx.restore();
-  ctx.globalAlpha = previousAlpha;
 }
