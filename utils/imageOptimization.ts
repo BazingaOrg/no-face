@@ -5,11 +5,6 @@
 export interface OptimizedImage {
   optimizedCanvas: HTMLCanvasElement;
   scale: number; // Scale factor for coordinate mapping
-  originalImage: HTMLImageElement;
-  originalWidth: number;
-  originalHeight: number;
-  optimizedWidth: number;
-  optimizedHeight: number;
 }
 
 /**
@@ -52,11 +47,6 @@ export async function optimizeImageForDetection(
   return {
     optimizedCanvas: canvas,
     scale,
-    originalImage: img,
-    originalWidth,
-    originalHeight,
-    optimizedWidth,
-    optimizedHeight,
   };
 }
 
@@ -85,18 +75,4 @@ export function getImageSizeCategory(fileSize: number): 'small' | 'medium' | 'la
   return 'large';
 }
 
-/**
- * Get user-friendly file size string
- */
-export function formatFileSize(bytes: number): string {
-  const MB = 1024 * 1024;
-  const KB = 1024;
-  
-  if (bytes >= MB) {
-    return `${(bytes / MB).toFixed(1)} MB`;
-  } else if (bytes >= KB) {
-    return `${(bytes / KB).toFixed(0)} KB`;
-  }
-  return `${bytes} B`;
-}
 

@@ -52,7 +52,7 @@ function getEmojiCodepoint(emoji: string): string {
  * Preload emoji image to ensure it's ready for rendering.
  * Backed by the shared emoji image cache, so subsequent canvas draws are synchronous.
  */
-export function preloadEmoji(url: string): Promise<HTMLImageElement> {
+function preloadEmoji(url: string): Promise<HTMLImageElement> {
   return loadEmojiImage(url);
 }
 

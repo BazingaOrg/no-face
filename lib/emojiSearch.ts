@@ -1,12 +1,9 @@
 /**
  * Curated emoji pool and its Chinese keyword search.
  *
- * emoji-picker-react's built-in search only matches English emoji names and
- * exposes no way to add aliases to its bundled Unicode dataset — so Chinese
- * search is only practical against our own curated list, not the full
- * ~3600-emoji picker. The pool and its keywords live in this one module so
- * they can't drift apart unnoticed; emojiSearch.test.ts asserts full 1:1
- * coverage between them.
+ * No third-party emoji picker library ships adequate Chinese-language search
+ * keywords, so this module maintains its own curated keyword mapping for
+ * local search; emojiSearch.test.ts asserts full 1:1 coverage between them.
  */
 
 // Curated selection of fun and expressive emojis for face replacement.

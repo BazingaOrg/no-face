@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   mapCoordinatesToOriginal,
   getImageSizeCategory,
-  formatFileSize,
 } from './imageOptimization';
 
 describe('mapCoordinatesToOriginal', () => {
@@ -34,10 +33,3 @@ describe('getImageSizeCategory', () => {
   });
 });
 
-describe('formatFileSize', () => {
-  it('formats bytes, KB and MB', () => {
-    expect(formatFileSize(512)).toBe('512 B');
-    expect(formatFileSize(2048)).toBe('2 KB');
-    expect(formatFileSize(1.5 * 1024 * 1024)).toBe('1.5 MB');
-  });
-});
