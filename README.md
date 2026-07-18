@@ -8,7 +8,7 @@
 
 <p align="center"><i>One click, every face becomes an emoji — right in your browser.</i></p>
 
-## ✨ Features
+## Features
 
 - Upload via drag & drop, click to select, or camera on mobile
 - On-device face detection (MediaPipe FaceDetector in a Web Worker) at 0.5 confidence, automatically retrying once at 0.3 before reporting "no face detected"
@@ -19,7 +19,7 @@
 - Undo/Redo with full history and keyboard shortcuts (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z)
 - Light/dark theme, bilingual UI (English/Chinese), and original-resolution PNG export
 
-## 🚀 Quick Start
+## Quick Start
 
 Prerequisites: Node.js 18+ or Bun.
 
@@ -37,14 +37,14 @@ npm test
 
 Visit http://localhost:3000
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 [Next.js 15](https://nextjs.org/) (App Router), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS v4](https://tailwindcss.com/), [@mediapipe/tasks-vision](https://github.com/google-ai-edge/mediapipe) (FaceDetector, in a Web Worker), [Twemoji](https://github.com/twitter/twemoji), [Framer Motion](https://www.framer.com/motion/)
 
-## 🔒 Privacy
+## Privacy
 
 All processing happens entirely client-side in your browser. The face detection model and MediaPipe WASM runtime are self-hosted assets shipped with the app (`public/models/`, `public/mediapipe/wasm/`), so no image or face data is ever sent to any server — your photo stays here, only here.
 
-## 📄 License
+## License
 
 MIT — free for personal and commercial use.
