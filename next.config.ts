@@ -1,14 +1,17 @@
 import type { NextConfig } from "next";
 
 // All processing is client-side; the only external origin is jsDelivr
-// (Twemoji SVGs, emoji-picker-react assets). Face detection runs via
+// (Twemoji SVGs). Face detection runs via
 // @mediapipe/tasks-vision, fully self-hosted (wasm + .task model under
 // public/), so script-src only needs 'wasm-unsafe-eval' for its WASM
 // compilation, not the broader 'unsafe-eval'. 'unsafe-inline' remains for
-// Next's inline runtime scripts.
+// Next's inline runtime scripts. Dev-only 'unsafe-eval' is required by
+// Next's react-refresh runtime; it is never emitted in production builds.
+const isDev = process.env.NODE_ENV === 'development';
+
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'",
+  `script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https://cdn.jsdelivr.net",
   "connect-src 'self' https://cdn.jsdelivr.net",
