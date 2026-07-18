@@ -2,6 +2,12 @@
 
 [English](#english) | [中文](#中文)
 
+<p align="center">
+  <img src="public/sample-faces.jpg" alt="Before" width="42%" />
+  <img src="public/sample-result.png" alt="After — faces replaced with emoji" width="42%" />
+</p>
+<p align="center"><i>One click, every face becomes an emoji — right in your browser.</i></p>
+
 ---
 
 <a name="english"></a>
