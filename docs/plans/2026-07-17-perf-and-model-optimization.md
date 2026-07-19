@@ -66,7 +66,7 @@
 
 仅保留仍有明确价值的条目，其余（预设样式包、人脸识别实验、社交分享、协作模式、商业化等）已裁撤：
 
-- [ ] **浏览器兼容性测试**：iOS Safari 重点，其次 Firefox、Android Chrome
+- [x] **浏览器兼容性测试**：iOS Safari 重点，其次 Firefox、Android Chrome（2026-07-18 用户已完成真机验证）
 - [x] **捏合/滚动缩放**：对当前 inspected face 独立缩放（touch pinch + wheel）
 - [ ] **实时摄像头模式**：规范见 `docs/real-time-camera.md`；Phase 3.1 已完成，前提性能基础（Worker 化检测）已就绪，可排期
 - [x] **i18n 完整翻译**：UI 文案抽离 + 英文版（2026-07-18 完成，见下方实施说明）
