@@ -4,10 +4,11 @@
 
 import { loadEmojiImage } from '@/lib/emojiImageCache';
 
-// Twemoji CDN base URL.
-// twitter/twemoji is unmaintained and its `latest` tag is frozen at 14.0.2;
-// jdecked/twemoji is the maintained fork with newer Unicode coverage.
-const TWEMOJI_CDN = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/';
+// Self-hosted Twemoji assets (downloaded via scripts/download-twemoji.mjs
+// from jdecked/twemoji@15.1.0 — the maintained fork twitter/twemoji is
+// frozen at 14.0.2). Serving from the app itself removes the only runtime
+// external dependency and lets the service worker cache them offline.
+const TWEMOJI_BASE = '/emoji/';
 
 /**
  * Get twemoji image URL for a given emoji character
@@ -19,7 +20,7 @@ export function getTwemojiUrl(emoji: string): string {
   const codepoint = getEmojiCodepoint(emoji);
 
   // Always use SVG format for best quality
-  return `${TWEMOJI_CDN}svg/${codepoint}.svg`;
+  return `${TWEMOJI_BASE}${codepoint}.svg`;
 }
 
 /**

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getTwemojiUrl } from './twemoji';
 
-const CDN = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/';
+const CDN = '/emoji/';
 
 describe('getTwemojiUrl', () => {
   it('converts a simple emoji to its codepoint', () => {

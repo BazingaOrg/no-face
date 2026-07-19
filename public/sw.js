@@ -2,24 +2,22 @@
  * Service worker for offline support.
  *
  * Face detection runs via a Worker (workers/faceDetection.worker.ts) on
- * MediaPipe's FaceDetector, with the WASM runtime and .task model
- * self-hosted under /mediapipe/ and /models/. All image processing happens
- * on-device — the only network dependency is the initial page load and the
- * Twemoji CDN. Caching both lets the app keep working (including
- * re-opening previously used emojis) with no connection.
+ * MediaPipe's FaceDetector, with the WASM runtime, .task model, and Twemoji
+ * SVGs self-hosted under /mediapipe/, /models/, and /emoji/. All image
+ * processing happens on-device, and all static assets ship with the app —
+ * the only network dependency is the initial page load. Caching them lets
+ * the app keep working fully offline.
  *
  * Bump CACHE_VERSION whenever precached assets change so old caches are
  * dropped on activate instead of accumulating forever.
  */
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `no-face-${CACHE_VERSION}`;
 
 // Model and wasm files are NOT precached here — they're multi-megabyte and
 // addAll fails the whole install if any one entry 404s. They're instead
 // filled in lazily by the runtime cacheFirst handler below on first request.
 const APP_SHELL = ['/', '/site.webmanifest', '/kaonashi.jpg'];
-
-const TWEMOJI_ORIGIN = 'https://cdn.jsdelivr.net';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -76,19 +74,14 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Twemoji assets: cache-first so previously used emojis render offline
-  if (url.origin === TWEMOJI_ORIGIN) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
   if (url.origin !== self.location.origin) return;
 
-  // Face detection model, MediaPipe wasm runtime, and Next.js hashed static
-  // assets: cache-first
+  // Face detection model, MediaPipe wasm runtime, self-hosted Twemoji SVGs,
+  // and Next.js hashed static assets: cache-first
   if (
     url.pathname.startsWith('/models/') ||
     url.pathname.startsWith('/mediapipe/') ||
+    url.pathname.startsWith('/emoji/') ||
     url.pathname.startsWith('/_next/static/')
   ) {
     event.respondWith(cacheFirst(request));

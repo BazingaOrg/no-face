@@ -43,7 +43,7 @@ npm test
 
 ## 隐私
 
-所有处理均在你的浏览器本地完成。人脸检测模型与 MediaPipe WASM 运行时都是随应用一起自托管的静态资源（`public/models/`、`public/mediapipe/wasm/`），不会有任何图片或人脸数据被发送到服务器——你的照片只留在这里，仅此而已。
+所有处理均在你的浏览器本地完成。人脸检测模型、MediaPipe WASM 运行时以及 Twemoji 表情图形都是随应用一起自托管的静态资源（`public/models/`、`public/mediapipe/wasm/`、`public/emoji/`），不会有任何图片或人脸数据被发送到服务器——你的照片只留在这里，仅此而已。
 
 ## 许可证
 

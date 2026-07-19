@@ -43,7 +43,7 @@ Visit http://localhost:3000
 
 ## Privacy
 
-All processing happens entirely client-side in your browser. The face detection model and MediaPipe WASM runtime are self-hosted assets shipped with the app (`public/models/`, `public/mediapipe/wasm/`), so no image or face data is ever sent to any server — your photo stays here, only here.
+All processing happens entirely client-side in your browser. The face detection model, MediaPipe WASM runtime, and Twemoji graphics are all self-hosted assets shipped with the app (`public/models/`, `public/mediapipe/wasm/`, `public/emoji/`), so no image or face data is ever sent to any server — your photo stays here, only here.
 
 ## License
 

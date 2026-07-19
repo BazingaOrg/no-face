@@ -9,8 +9,8 @@ import { CURATED_EMOJI_POOL } from '@/lib/emojiSearch';
  * so the most common picks render offline without waiting for a user to
  * have clicked each one first. Runs at idle priority and fails silently —
  * this is a nice-to-have, not a correctness requirement. Relies on the SW's
- * existing cache-first handler for the jsdelivr origin (public/sw.js); this
- * just triggers the fetches.
+ * existing cache-first handler for /emoji/ (public/sw.js); this just
+ * triggers the fetches.
  */
 function prefetchPopularEmojis() {
   const run = () => {
