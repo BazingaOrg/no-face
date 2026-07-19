@@ -131,7 +131,7 @@ export default function EmojiToolbar({
                     alt={emoji}
                     loading="lazy"
                     draggable={false}
-                    className="w-6 h-6"
+                    className="w-6 h-6 md:w-8 md:h-8"
                     onError={() =>
                       setImageFailed((prev) => new Set(prev).add(emoji))
                     }
