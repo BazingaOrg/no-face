@@ -18,6 +18,22 @@ export const en: typeof zh = {
     mobileHint: '📱 On mobile, use your camera or photo library',
     sampleButton: 'Try a sample photo',
   },
+  camera: {
+    enter: 'Live camera',
+    connecting: 'Connecting to camera…',
+    capture: 'Take photo',
+    retry: 'Retry',
+    backToUpload: 'Back to upload',
+    device: 'Camera',
+    defaultEmoji: (emoji: string) => `Live preview uses ${emoji}; refine it after taking the photo`,
+    errors: {
+      'no-device': 'No camera is available. Please upload a photo instead.',
+      'permission-denied': 'Camera permission was denied. Allow it, then retry.',
+      'device-in-use': 'Your camera is in use by another app. Close it, then retry.',
+      unsupported: 'Camera access is not supported in this browser.',
+      unknown: 'Unable to start the camera. Please retry.',
+    },
+  },
   processing: {
     shrinking: '⚙️ Shrinking your photo',
     analyzing: '🌀 Processing photo',

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { m, AnimatePresence, MotionConfig } from 'framer-motion';
 import ImageUploader from '@/components/ImageUploader';
+import LiveCameraView from '@/components/LiveCameraView';
 import FaceCanvas from '@/components/FaceCanvas';
 import EmojiToolbar from '@/components/EmojiToolbar';
 import IconButton from '@/components/IconButton';
@@ -55,6 +56,9 @@ export default function Home() {
 
   // State management
   const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [mode, setMode] = useState<'upload' | 'live' | 'edit'>('upload');
+  const [hasCamera, setHasCamera] = useState(false);
+  const liveEntryRequestRef = useRef(0);
   const [optimizedImage, setOptimizedImage] = useState<OptimizedImage | null>(null);
   const [faces, setFaces] = useState<DetectedFace[]>([]);
   const [replacements, setReplacements] = useState<EmojiReplacement[]>([]);
@@ -186,6 +190,15 @@ export default function Home() {
     };
   }, []);
 
+  // This preflight deliberately uses enumerateDevices only, so opening the
+  // upload screen never prompts for camera permission.
+  useEffect(() => {
+    if (!window.isSecureContext || !navigator.mediaDevices?.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices()
+      .then((devices) => setHasCamera(devices.some((device) => device.kind === 'videoinput')))
+      .catch(() => setHasCamera(false));
+  }, []);
+
   // Starts the Worker + MediaPipe detector if it isn't already ready,
   // showing the blocking LoadingOverlay (isLoading: true) while it does.
   // Used for the very first load triggered by an image upload; subsequent
@@ -271,6 +284,8 @@ export default function Home() {
   // Handle image upload
   const handleImageLoad = useCallback(
     async (img: HTMLImageElement, fileSize?: number) => {
+      liveEntryRequestRef.current += 1;
+      setMode('edit');
       setImage(img);
       setFaces([]);
       setReplacements([]);
@@ -365,7 +380,7 @@ export default function Home() {
   );
 
   const { isDraggingOver: isWindowDragging } = useWindowFileDrop(
-    !isProcessing,
+    mode !== 'live' && !isProcessing,
     handleWindowDroppedFile
   );
 
@@ -636,6 +651,8 @@ export default function Home() {
 
   // Clear everything and go back to the empty (upload) state
   const handleNewPhoto = useCallback(() => {
+    liveEntryRequestRef.current += 1;
+    setMode('upload');
     setImage(null);
     setOptimizedImage(null);
     setFaces([]);
@@ -649,11 +666,26 @@ export default function Home() {
   }, [clearHistory]);
 
   // Derived, single-focus layout states
-  const isEmpty = !image;
+  const isEmpty = mode === 'upload';
   // Once there's an image, stay in the editing layout shell even while
   // isProcessing (redetect/replace-image keep the canvas mounted, with the
   // global LoadingOverlay layered on top).
-  const isEditing = !!image;
+  const isEditing = mode === 'edit' && !!image;
+
+  const handleEnterLiveMode = useCallback(async () => {
+    const request = ++liveEntryRequestRef.current;
+    setMode('live');
+    try {
+      await ensureFaceDetectorReady();
+    } catch {
+      if (liveEntryRequestRef.current === request) setMode('upload');
+    }
+  }, [ensureFaceDetectorReady]);
+
+  const handleExitLiveMode = useCallback(() => {
+    liveEntryRequestRef.current += 1;
+    setMode('upload');
+  }, []);
 
   const iconButtonsCompact = (
     <>
@@ -825,7 +857,7 @@ export default function Home() {
     >
       {/* Whole-window drag overlay */}
       <AnimatePresence>
-        {isWindowDragging && (
+        {isWindowDragging && mode !== 'live' && (
           <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -861,8 +893,20 @@ export default function Home() {
         {isEmpty && (
           <div className="flex-1 flex items-center justify-center px-4 py-6 md:py-10">
             <div className="max-w-xl w-full">
-              <ImageUploader onImageLoad={handleImageLoad} onError={showToast} disabled={isProcessing} />
+              <ImageUploader onImageLoad={handleImageLoad} onError={showToast} onLiveMode={hasCamera ? handleEnterLiveMode : undefined} disabled={isProcessing} />
             </div>
+          </div>
+        )}
+
+        {mode === 'live' && (
+          <div className="flex-1 flex items-center justify-center px-4 py-6 md:py-10">
+            <LiveCameraView
+              selectedEmoji={selectedEmoji}
+              emojiSize={emojiSize}
+              detectionMode={detectionMode}
+              onCapture={handleImageLoad}
+              onExit={handleExitLiveMode}
+            />
           </div>
         )}
 
@@ -991,7 +1035,7 @@ export default function Home() {
           hidden footer, so it must be visible outright. Editing state uses
           the compact single-line spacing since vertical space is scarce
           there; landing state keeps the spacious document-flow version. */}
-      <AppFooter compact={isEditing} />
+      <AppFooter compact={isEditing || mode === 'live'} />
     </div>
     </MotionConfig>
   );

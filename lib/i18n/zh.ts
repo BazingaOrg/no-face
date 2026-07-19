@@ -16,6 +16,22 @@ export const zh = {
     mobileHint: '📱 移动设备可直接调用相机或相册',
     sampleButton: '试试示例图',
   },
+  camera: {
+    enter: '实时模式',
+    connecting: '正在连接摄像头…',
+    capture: '拍照',
+    retry: '重试',
+    backToUpload: '返回上传',
+    device: '摄像头',
+    defaultEmoji: (emoji: string) => `实时预览使用 ${emoji}，可在拍照后精修`,
+    errors: {
+      'no-device': '没有可用摄像头，请返回上传图片。',
+      'permission-denied': '摄像头权限被拒绝，请允许权限后重试。',
+      'device-in-use': '摄像头正被其他应用占用，请关闭后重试。',
+      unsupported: '当前浏览器不支持摄像头访问。',
+      unknown: '无法启动摄像头，请重试。',
+    },
+  },
   processing: {
     shrinking: '⚙️ 正在瘦身图片',
     analyzing: '🌀 图片处理中',

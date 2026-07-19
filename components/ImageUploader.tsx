@@ -13,10 +13,11 @@ const SAMPLE_IMAGE_URL = '/sample-faces.jpg';
 interface ImageUploaderProps {
   onImageLoad: (image: HTMLImageElement, fileSize?: number) => void;
   onError?: (message: string) => void;
+  onLiveMode?: () => void;
   disabled?: boolean;
 }
 
-export default function ImageUploader({ onImageLoad, onError, disabled }: ImageUploaderProps) {
+export default function ImageUploader({ onImageLoad, onError, onLiveMode, disabled }: ImageUploaderProps) {
   const { t } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
 
@@ -159,7 +160,7 @@ export default function ImageUploader({ onImageLoad, onError, disabled }: ImageU
         </div>
       </div>
 
-      <div className="mt-3 flex justify-center">
+      <div className="mt-3 flex justify-center gap-2">
         <button
           type="button"
           onClick={handleSampleClick}
@@ -168,6 +169,16 @@ export default function ImageUploader({ onImageLoad, onError, disabled }: ImageU
         >
           {t.uploader.sampleButton}
         </button>
+        {onLiveMode && (
+          <button
+            type="button"
+            onClick={onLiveMode}
+            disabled={disabled}
+            className="relative z-10 hidden md:inline-flex text-sm px-3 py-1.5 btn-duo btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {t.camera.enter}
+          </button>
+        )}
       </div>
     </m.div>
   );
