@@ -53,6 +53,12 @@ export const zh = {
     download: '下载图片',
     downloadTitleDisabled: '请先替换表情',
   },
+  detectionMode: {
+    relaxed: '宽松',
+    standard: '标准',
+    strict: '严格',
+    aria: '检测灵敏度',
+  },
   badges: {
     faceLabel: (n: number) => `第 ${n} 张脸`,
     faceAria: (n: number, hasReplacement: boolean) =>
@@ -65,6 +71,11 @@ export const zh = {
     searchPlaceholder: '搜索表情，比如「笑」「猫」「生气」...',
     noMatch: '🙈 没找到匹配的表情',
     sizeLabel: '📐 表情大小',
+    sizeTiers: {
+      small: '小',
+      standard: '标准',
+      large: '大',
+    },
   },
   modelLoading: {
     title: '正在加载检测引擎',

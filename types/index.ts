@@ -28,6 +28,9 @@ export interface EmojiReplacement {
   offsetY?: number;
 }
 
+// Detection sensitivity tiers exposed to the user via a segmented control.
+export type DetectionMode = 'relaxed' | 'standard' | 'strict';
+
 // Face detection settings
 export interface DetectionSettings {
   minConfidence: number; // 0-1, the only user-adjustable detection parameter

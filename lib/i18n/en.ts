@@ -55,6 +55,12 @@ export const en: typeof zh = {
     download: 'Download',
     downloadTitleDisabled: 'Replace a face first',
   },
+  detectionMode: {
+    relaxed: 'Relaxed',
+    standard: 'Standard',
+    strict: 'Strict',
+    aria: 'Detection sensitivity',
+  },
   badges: {
     faceLabel: (n: number) => `Face ${n}`,
     faceAria: (n: number, hasReplacement: boolean) =>
@@ -67,6 +73,11 @@ export const en: typeof zh = {
     searchPlaceholder: 'Search emoji',
     noMatch: '🙈 No matches',
     sizeLabel: '📐 Emoji size',
+    sizeTiers: {
+      small: 'Small',
+      standard: 'Standard',
+      large: 'Large',
+    },
   },
   modelLoading: {
     title: 'Loading detection engine',
