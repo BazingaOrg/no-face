@@ -11,7 +11,7 @@
  * Bump CACHE_VERSION whenever precached assets change so old caches are
  * dropped on activate instead of accumulating forever.
  */
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = `no-face-${CACHE_VERSION}`;
 
 // Model and wasm files are NOT precached here — they're multi-megabyte and
