@@ -126,7 +126,7 @@ export function initFaceDetector(): Promise<void> {
  * up front so the loading UI can reflect it).
  */
 export async function detectFacesWithWorker(
-  input: HTMLImageElement | HTMLCanvasElement,
+  input: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement,
   minConfidence: number
 ): Promise<DetectedFace[]> {
   await initFaceDetector();
