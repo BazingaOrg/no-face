@@ -14,7 +14,8 @@ import Toast from '@/components/Toast';
 import {
   DetectedFace,
   EmojiReplacement,
-  ModelLoadingState
+  ModelLoadingState,
+  DetectionMode
 } from '@/types';
 import {
   initFaceDetector,
@@ -30,25 +31,12 @@ import {
   type OptimizedImage
 } from '@/utils/imageOptimization';
 import { runFaceDetection } from '@/lib/runFaceDetection';
+import { getMinConfidence, shouldRetryOnEmpty, RETRY_MIN_CONFIDENCE } from '@/lib/detectionMode';
 import { useHistoryStack } from '@/hooks/useHistoryStack';
 import { useWindowFileDrop } from '@/hooks/useWindowFileDrop';
 import { useDelayedVisibility } from '@/hooks/useDelayedVisibility';
 import { useI18n } from '@/lib/i18n';
 import { canvasEntranceSpring, mobileToolbarSpring, desktopColumnSpring } from '@/lib/motion';
-
-// Detection runs at this confidence threshold by default; if it finds no
-// faces, it retries once at a lower threshold before reporting an error.
-const DEFAULT_MIN_CONFIDENCE = 0.5;
-const FALLBACK_MIN_CONFIDENCE = 0.3;
-
-// Reserves scroll space at the bottom of mobile (<768) editing-state content
-// so it isn't hidden behind the fixed docked toolbar — used both on the
-// canvas column and (via a wrapper) on AppFooter, so scrolling all the way
-// down reveals the footer above the toolbar instead of the toolbar covering it.
-// 18rem comfortably clears the toolbar's tallest normal state (search bar +
-// emoji row + size slider + two buttons + icon row, ~255px) with margin for
-// the safe-area inset on notched devices.
-const MOBILE_TOOLBAR_SAFE_AREA = 'pb-72';
 
 const DEFAULT_EMOJI_SIZE = 1.2;
 // How long to wait after the last size-slider change before pushing undo
@@ -70,6 +58,7 @@ export default function Home() {
   const [optimizedImage, setOptimizedImage] = useState<OptimizedImage | null>(null);
   const [faces, setFaces] = useState<DetectedFace[]>([]);
   const [replacements, setReplacements] = useState<EmojiReplacement[]>([]);
+  const [detectionMode, setDetectionMode] = useState<DetectionMode>('standard');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -241,25 +230,26 @@ export default function Home() {
   }, []);
 
   // Shared detection tail: run detection and surface the result (used by
-  // both the initial upload flow and re-detection). Detection runs at 0.5
-  // confidence; if that finds zero faces, it retries once at 0.3 before
-  // surfacing the "no faces" error, so low-confidence/small faces still
-  // stand a chance without the user having to fiddle with a settings panel.
+  // both the initial upload flow and re-detection). Detection runs at the
+  // confidence threshold for the given mode; 'standard' retries once at the
+  // relaxed threshold if that finds zero faces, so low-confidence/small
+  // faces still stand a chance without the user having to fiddle with a
+  // settings panel — 'relaxed' and 'strict' don't retry (see detectionMode.ts).
   const detectAndSetFaces = useCallback(
-    async (input: HTMLImageElement | HTMLCanvasElement, scale: number) => {
+    async (input: HTMLImageElement | HTMLCanvasElement, scale: number, mode: DetectionMode) => {
       // Small delay so the processing overlay can paint first
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       let detectionResult = await runFaceDetection({
         input,
-        settings: { minConfidence: DEFAULT_MIN_CONFIDENCE },
+        settings: { minConfidence: getMinConfidence(mode) },
         scale,
       });
 
-      if (detectionResult.isEmpty) {
+      if (detectionResult.isEmpty && shouldRetryOnEmpty(mode)) {
         detectionResult = await runFaceDetection({
           input,
-          settings: { minConfidence: FALLBACK_MIN_CONFIDENCE },
+          settings: { minConfidence: RETRY_MIN_CONFIDENCE },
           scale,
         });
       }
@@ -332,7 +322,7 @@ export default function Home() {
         }
 
         setProcessingMessage(t.processing.detecting);
-        await detectAndSetFaces(imageToDetect, scale);
+        await detectAndSetFaces(imageToDetect, scale, detectionMode);
       } catch (error) {
         console.error('Face detection failed:', error);
         setError(t.error.detectionFailed);
@@ -341,7 +331,7 @@ export default function Home() {
         setProcessingMessage('');
       }
     },
-    [detectAndSetFaces, clearHistory, ensureFaceDetectorReady, t]
+    [detectAndSetFaces, clearHistory, ensureFaceDetectorReady, detectionMode, t]
   );
 
   // Whole-window drag & drop: dropping a new image anywhere replaces the
@@ -523,9 +513,13 @@ export default function Home() {
     showToast(t.toasts.resetCleared, { label: t.common.undo, handler: handleUndo });
   }, [replacements, pushHistory, showToast, handleUndo, t]);
 
-  // Re-detect faces with new settings (clears replacements, undoable via toast)
-  const handleRedetect = useCallback(async () => {
+  // Re-detect faces with new settings (clears replacements, undoable via toast).
+  // Accepts an optional mode override so callers switching sensitivity tiers
+  // can pass the new mode directly (see handleDetectionModeChange below).
+  const handleRedetect = useCallback(async (modeOverride?: DetectionMode) => {
     if (!image) return;
+
+    const mode = modeOverride ?? detectionMode;
 
     const hadReplacements = replacements.length > 0;
     if (hadReplacements) {
@@ -544,7 +538,7 @@ export default function Home() {
       const imageToDetect = optimizedImage?.optimizedCanvas || image;
       const scale = optimizedImage?.scale || 1;
 
-      await detectAndSetFaces(imageToDetect, scale);
+      await detectAndSetFaces(imageToDetect, scale, mode);
     } catch (error) {
       console.error('Redetection failed:', error);
       setError(t.error.detectionFailed);
@@ -559,7 +553,21 @@ export default function Home() {
         });
       }
     }
-  }, [image, optimizedImage, replacements, pushHistory, detectAndSetFaces, showToast, handleUndo, t]);
+  }, [image, optimizedImage, replacements, detectionMode, pushHistory, detectAndSetFaces, showToast, handleUndo, t]);
+
+  // Switching sensitivity tiers immediately re-detects at the new threshold.
+  // handleRedetect is a useCallback closing over `detectionMode`, but setState
+  // is async — the state wouldn't be updated yet if we just called
+  // handleRedetect() right after setDetectionMode(). Passing the new mode
+  // explicitly sidesteps that stale-closure gap.
+  const handleDetectionModeChange = useCallback(
+    (mode: DetectionMode) => {
+      if (mode === detectionMode) return;
+      setDetectionMode(mode);
+      handleRedetect(mode);
+    },
+    [detectionMode, handleRedetect]
+  );
 
 
   // Export image
@@ -655,7 +663,7 @@ export default function Home() {
       <IconButton onClick={handleRedo} disabled={!canRedo} aria-label={t.actions.redoTitle} title={t.actions.redoTitle}>
         <Redo size={18} />
       </IconButton>
-      <IconButton onClick={handleRedetect} aria-label={t.actions.redetect} title={t.actions.redetect}>
+      <IconButton onClick={() => handleRedetect()} aria-label={t.actions.redetect} title={t.actions.redetect}>
         <Redetect size={18} />
       </IconButton>
       <IconButton
@@ -693,7 +701,7 @@ export default function Home() {
         <Redo size={18} />
       </IconButton>
       <IconButton
-        onClick={handleRedetect}
+        onClick={() => handleRedetect()}
         aria-label={t.actions.redetect}
         title={t.actions.redetect}
         label={t.actions.redetectLabel}
@@ -810,7 +818,11 @@ export default function Home() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex flex-col">
+    <div
+      className={`${
+        isEditing ? 'h-dvh overflow-hidden' : 'min-h-dvh'
+      } bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex flex-col`}
+    >
       {/* Whole-window drag overlay */}
       <AnimatePresence>
         {isWindowDragging && (
@@ -844,7 +856,7 @@ export default function Home() {
 
       <AppHeader />
 
-      <main className="flex-1 flex flex-col w-full">
+      <main className="flex-1 flex flex-col w-full min-h-0">
         {/* Empty state — centered upload card */}
         {isEmpty && (
           <div className="flex-1 flex items-center justify-center px-4 py-6 md:py-10">
@@ -855,77 +867,81 @@ export default function Home() {
         )}
 
         {/* Editing state — canvas is the main visual. Stays mounted during
-            redetect/replace-image processing too (overlay rendered above). */}
+            redetect/replace-image processing too (overlay rendered above).
+            No page scroll at ANY breakpoint: this whole block lives inside
+            main's flex-1 min-h-0, and is itself a flex column (<md) / row
+            (md+) that never exceeds that available space. md and lg now
+            share one toolbar-panel render (previously a separate "card" for
+            md and a separate sticky column for lg) — sticky is meaningless
+            once the page itself doesn't scroll, and mid-width viewports get
+            the same fixed-width side panel desktop does. */}
         {isEditing && (
-          <div className="flex-1 w-full lg:max-w-6xl mx-auto px-4 py-4 md:max-w-2xl lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(320px,28vw,380px)] lg:gap-6">
-            {/* Canvas column */}
-            <div className={`flex flex-col gap-4 ${MOBILE_TOOLBAR_SAFE_AREA} md:pb-4`}>
+          <div className="flex-1 min-h-0 w-full flex flex-col md:flex-row gap-4 md:gap-6 px-4 py-4">
+            {/* Canvas column: fills remaining space and centers the image
+                both axes, at every breakpoint. */}
+            {/* min-w-0 is load-bearing: the canvas is a fixed-pixel-width
+                element, so without it this column's min-width:auto would be
+                the canvas width — when the side panel mounts after detection,
+                the row could no longer shrink and the panel would be pushed
+                past the right edge (clipped by overflow-hidden) on tablet
+                widths. With min-w-0 the column shrinks, the canvas container
+                remeasures, and the ResizeObserver refits the canvas. */}
+            <div className="flex-1 min-w-0 min-h-0 flex flex-col items-center gap-4">
               {compactProgressText}
-              {error ? (
-                <m.div
-                  role="alert"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-5 text-center border-4 border-orange-400 dark:border-orange-500"
-                >
-                  <div className="text-4xl mb-2">⚠️</div>
-                  <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">{t.error.title}</p>
-                  <p className="text-gray-600 dark:text-gray-300">{error}</p>
-                </m.div>
-              ) : (
-                <m.div
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={canvasEntranceSpring}
-                >
-                  <FaceCanvas
-                    image={image}
-                    faces={faces}
-                    replacements={replacements}
-                    emojiScale={emojiSize}
-                    onFaceSelect={handleFaceClick}
-                    activeReplacementId={activeReplacementId}
-                    onRepositionActiveEmoji={handleRepositionActiveEmoji}
-                    onBeginDragReposition={pushHistory}
-                  />
-                </m.div>
-              )}
-
-              {/* Medium breakpoint (768–1023): toolbar flows below the canvas as a card.
-                  Gated on hasShownFaces (not faces.length directly) so a redetect's
-                  brief faces=[] gap doesn't unmount/remount this and replay its
-                  entrance animation — it only truly mounts/unmounts at session
-                  boundaries (new photo / new image upload). */}
-              {hasShownFaces && (
-                <m.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={desktopColumnSpring}
-                  className="hidden md:flex lg:hidden flex-col gap-3 glass-card p-4"
-                >
-                  {progressText}
-                  <EmojiToolbar
-                    onEmojiSelect={handleEmojiSelect}
-                    selectedEmoji={selectedEmoji}
-                    emojiSize={emojiSize}
-                    onEmojiSizeChange={handleEmojiSizeChange}
-                  />
-                  {renderPrimaryButtons('row')}
-                  <div className="flex flex-wrap gap-2 justify-center pt-2 border-t border-gray-200/60 dark:border-slate-700/60">
-                    {iconButtonsCompact}
-                  </div>
-                </m.div>
-              )}
+              {/* The box FaceCanvas must fit inside without producing page
+                  scroll — FaceCanvas measures this box's actual clientHeight
+                  (via its own h-full root) instead of an arbitrary viewport
+                  fraction, so it contains itself here at every breakpoint. */}
+              <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
+                {error ? (
+                  <m.div
+                    role="alert"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-5 text-center border-4 border-orange-400 dark:border-orange-500"
+                  >
+                    <div className="text-4xl mb-2">⚠️</div>
+                    <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">{t.error.title}</p>
+                    <p className="text-gray-600 dark:text-gray-300">{error}</p>
+                  </m.div>
+                ) : (
+                  // w-full h-full keeps the percentage-height chain intact:
+                  // FaceCanvas's h-full root measures this box; with height
+                  // auto it would fall back to its 600px default.
+                  <m.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={canvasEntranceSpring}
+                    className="w-full h-full min-h-0 flex items-center justify-center"
+                  >
+                    <FaceCanvas
+                      image={image}
+                      faces={faces}
+                      replacements={replacements}
+                      emojiScale={emojiSize}
+                      onFaceSelect={handleFaceClick}
+                      activeReplacementId={activeReplacementId}
+                      onRepositionActiveEmoji={handleRepositionActiveEmoji}
+                      onBeginDragReposition={pushHistory}
+                    />
+                  </m.div>
+                )}
+              </div>
             </div>
 
-            {/* Desktop/iPad landscape (>=1024): sticky right column — see
-                hasShownFaces note above the medium-breakpoint card. */}
+            {/* md+ (768 and up): fixed-width side panel, shared by tablet and
+                desktop — self-scrolls if its content ever exceeds the column
+                height instead of the page. Gated on hasShownFaces (not
+                faces.length directly) so a redetect's brief faces=[] gap
+                doesn't unmount/remount this and replay its entrance
+                animation — it only truly mounts/unmounts at session
+                boundaries (new photo / new image upload). */}
             {hasShownFaces && (
               <m.div
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={desktopColumnSpring}
-                className="hidden lg:flex lg:flex-col lg:sticky lg:top-20 lg:self-start gap-4"
+                className="hidden md:flex md:flex-col md:w-[clamp(320px,28vw,380px)] md:shrink-0 gap-4 glass-card p-4 overflow-y-auto min-h-0"
               >
                 {progressText}
                 <EmojiToolbar
@@ -933,6 +949,8 @@ export default function Home() {
                   selectedEmoji={selectedEmoji}
                   emojiSize={emojiSize}
                   onEmojiSizeChange={handleEmojiSizeChange}
+                  detectionMode={detectionMode}
+                  onDetectionModeChange={handleDetectionModeChange}
                 />
                 {renderPrimaryButtons('stack')}
                 <div className="flex flex-wrap gap-2 justify-center pt-2 border-t border-gray-200/60 dark:border-slate-700/60">
@@ -940,40 +958,40 @@ export default function Home() {
                 </div>
               </m.div>
             )}
+
+            {/* <768: toolbar panel below the canvas, in normal flow as the
+                last row of this flex column — no longer `fixed`/docked, so
+                it can't overlap the canvas or footer. max-h/overflow-y-auto
+                lets its own content scroll instead of the page, on viewports
+                too short to fit it in full. */}
+            {hasShownFaces && (
+              <m.div
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={mobileToolbarSpring}
+                className="md:hidden shrink-0 bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-t border-gray-200/60 dark:border-slate-700/60 rounded-3xl px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] space-y-2 max-h-[60vh] overflow-y-auto"
+              >
+                <EmojiToolbar
+                  onEmojiSelect={handleEmojiSelect}
+                  selectedEmoji={selectedEmoji}
+                  emojiSize={emojiSize}
+                  onEmojiSizeChange={handleEmojiSizeChange}
+                  detectionMode={detectionMode}
+                  onDetectionModeChange={handleDetectionModeChange}
+                />
+                {renderPrimaryButtons('row')}
+                <div className="flex flex-wrap gap-2 justify-center pt-1">{iconButtonsCompact}</div>
+              </m.div>
+            )}
           </div>
         )}
       </main>
 
-      {/* Mobile docked toolbar (<768), editing state only — see hasShownFaces
-          note above the medium-breakpoint card. */}
-      <AnimatePresence>
-        {isEditing && hasShownFaces && (
-          <m.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={mobileToolbarSpring}
-            className="fixed inset-x-0 bottom-0 z-30 md:hidden bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-t border-gray-200/60 dark:border-slate-700/60 rounded-t-3xl px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] space-y-2"
-          >
-            <EmojiToolbar
-              onEmojiSelect={handleEmojiSelect}
-              selectedEmoji={selectedEmoji}
-              emojiSize={emojiSize}
-              onEmojiSizeChange={handleEmojiSizeChange}
-            />
-            {renderPrimaryButtons('row')}
-            <div className="flex flex-wrap gap-2 justify-center pt-1">{iconButtonsCompact}</div>
-          </m.div>
-        )}
-      </AnimatePresence>
-
-      {/* On mobile editing state, the fixed docked toolbar overlays the
-          bottom of the viewport, so reserve the same safe-area padding here
-          as the canvas column — otherwise the footer scrolls to the bottom
-          only to sit right behind the toolbar. */}
-      <div className={isEditing && hasShownFaces ? `${MOBILE_TOOLBAR_SAFE_AREA} md:pb-0` : ''}>
-        <AppFooter />
-      </div>
+      {/* Always rendered — the h-dvh shell has no page scroll to reveal a
+          hidden footer, so it must be visible outright. Editing state uses
+          the compact single-line spacing since vertical space is scarce
+          there; landing state keeps the spacious document-flow version. */}
+      <AppFooter compact={isEditing} />
     </div>
     </MotionConfig>
   );

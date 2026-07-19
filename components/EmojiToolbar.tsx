@@ -5,16 +5,24 @@ import { m } from 'framer-motion';
 import { searchCuratedEmojis, POPULAR_EMOJIS, CURATED_EMOJI_POOL } from '@/lib/emojiSearch';
 import { useI18n } from '@/lib/i18n';
 import { Dice, Search } from '@/components/icons';
+import SegmentedControl from '@/components/SegmentedControl';
+import { getTwemojiUrl } from '@/lib/twemoji';
+import { DetectionMode } from '@/types';
 
 interface EmojiToolbarProps {
   onEmojiSelect: (emoji: string) => void;
   selectedEmoji: string | null;
   emojiSize: number;
   onEmojiSizeChange: (size: number) => void;
+  detectionMode: DetectionMode;
+  onDetectionModeChange: (mode: DetectionMode) => void;
 }
 
-const MIN_EMOJI_SIZE = 0.8;
-const MAX_EMOJI_SIZE = 1.6;
+const EMOJI_SIZE_TIERS: { value: 'small' | 'standard' | 'large'; size: number }[] = [
+  { value: 'small', size: 0.9 },
+  { value: 'standard', size: 1.2 },
+  { value: 'large', size: 1.5 },
+];
 
 // Search + dice + featured emoji grid + size slider. Shared by the
 // mobile-docked toolbar, the medium flowing card, and the desktop right
@@ -26,10 +34,22 @@ export default function EmojiToolbar({
   selectedEmoji,
   emojiSize,
   onEmojiSizeChange,
+  detectionMode,
+  onDetectionModeChange,
 }: EmojiToolbarProps) {
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  // Emojis whose Twemoji image failed to load — rendered as native glyphs instead.
+  const [imageFailed, setImageFailed] = useState<Set<string>>(new Set());
+
+  const selectedSizeTier = useMemo(
+    () =>
+      EMOJI_SIZE_TIERS.reduce((closest, tier) =>
+        Math.abs(tier.size - emojiSize) < Math.abs(closest.size - emojiSize) ? tier : closest
+      ).value,
+    [emojiSize]
+  );
 
   const filteredCurated = useMemo(
     () => searchCuratedEmojis(searchQuery, CURATED_EMOJI_POOL),
@@ -43,7 +63,10 @@ export default function EmojiToolbar({
     const behavior: ScrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       ? 'auto'
       : 'smooth';
-    el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior });
+    // inline: 'center' (not 'nearest') — with scroll-snap on the row,
+    // 'nearest' can settle with the target only partially visible at the
+    // right edge (e.g. after a random pick near the end of the row).
+    el.scrollIntoView({ block: 'nearest', inline: 'center', behavior });
   }, [selectedEmoji]);
 
   const handleRandomEmoji = () => {
@@ -52,7 +75,7 @@ export default function EmojiToolbar({
   };
 
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-2 md:space-y-3">
       {/* Search + dice */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -83,7 +106,7 @@ export default function EmojiToolbar({
 
       {/* Featured emoji — horizontal scroll row below md, wrapping grid at md+ */}
       {filteredCurated.length > 0 ? (
-        <div className="flex gap-1.5 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-1 md:grid md:grid-cols-10 md:gap-1 md:overflow-visible md:snap-none md:pb-0 md:max-h-56 md:overflow-y-auto lg:max-h-64">
+        <div className="flex gap-1.5 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-1 md:grid md:grid-cols-10 md:gap-1 md:overflow-visible md:snap-none md:pb-0 md:max-h-[8.75rem] md:overflow-y-auto">
           {filteredCurated.map((emoji) => {
             const isSelected = emoji === selectedEmoji;
             return (
@@ -100,7 +123,20 @@ export default function EmojiToolbar({
                 }`}
                 title={emoji}
               >
-                {emoji}
+                {imageFailed.has(emoji) ? (
+                  emoji
+                ) : (
+                  <img
+                    src={getTwemojiUrl(emoji)}
+                    alt={emoji}
+                    loading="lazy"
+                    draggable={false}
+                    className="w-6 h-6"
+                    onError={() =>
+                      setImageFailed((prev) => new Set(prev).add(emoji))
+                    }
+                  />
+                )}
               </button>
             );
           })}
@@ -109,23 +145,37 @@ export default function EmojiToolbar({
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-2">{t.emojiToolbar.noMatch}</p>
       )}
 
-      {/* Size slider */}
-      <div className="flex items-center gap-3">
-        <label
-          htmlFor="emoji-size-slider"
-          className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap"
-        >
+      {/* Emoji size */}
+      <div className="flex items-center gap-2 md:gap-3">
+        <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
           {t.emojiToolbar.sizeLabel}
-        </label>
-        <input
-          id="emoji-size-slider"
-          type="range"
-          min={MIN_EMOJI_SIZE}
-          max={MAX_EMOJI_SIZE}
-          step={0.05}
-          value={emojiSize}
-          onChange={(event) => onEmojiSizeChange(parseFloat(event.target.value))}
-          className="flex-1 h-2 bg-gray-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer accent-blue-500"
+        </span>
+        <SegmentedControl
+          options={EMOJI_SIZE_TIERS.map((tier) => ({
+            value: tier.value,
+            label: t.emojiToolbar.sizeTiers[tier.value],
+          }))}
+          value={selectedSizeTier}
+          onChange={(tier) =>
+            onEmojiSizeChange(EMOJI_SIZE_TIERS.find((t) => t.value === tier)!.size)
+          }
+          ariaLabel={t.emojiToolbar.sizeLabel}
+        />
+      </div>
+
+      {/* Detection sensitivity */}
+      <div className="flex items-center gap-2 md:gap-3">
+        <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+          {t.detectionMode.aria}
+        </span>
+        <SegmentedControl
+          options={(['relaxed', 'standard', 'strict'] as const).map((mode) => ({
+            value: mode,
+            label: t.detectionMode[mode],
+          }))}
+          value={detectionMode}
+          onChange={onDetectionModeChange}
+          ariaLabel={t.detectionMode.aria}
         />
       </div>
     </div>

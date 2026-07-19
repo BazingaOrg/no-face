@@ -136,12 +136,23 @@ export default function FaceCanvas({
 
     const fitToContainer = () => {
       const maxWidth = container.clientWidth || 800; // Fallback to 800px if container not ready
-      const maxHeight = Math.min(window.innerHeight * 0.8, 900) || 600; // Max 80vh or 900px, floor for degenerate viewports
+      // Height is capped by the container's actual available space (set by
+      // the page's flex layout via the h-full root above), not an arbitrary
+      // viewport fraction — this keeps the canvas contained within its
+      // flex-1/min-h-0 box at every breakpoint instead of overflowing and
+      // forcing page scroll. The ResizeObserver below (already observing
+      // `container`) re-fits whenever that available space changes, on
+      // viewport resize or breakpoint changes alike. 600 is a fallback only
+      // for the (rare) case clientHeight reads 0 before layout.
+      const maxHeight = container.clientHeight || 600;
 
       // Calculate scale to fit container
       const scaleX = maxWidth / image.naturalWidth;
       const scaleY = maxHeight / image.naturalHeight;
-      const fitScale = Math.min(scaleX, scaleY, 1); // Don't scale up
+      // Allow upscaling small images to fill the available area (display
+      // only — export always uses the original resolution), capped at 2x so
+      // tiny images don't blow up into a blur on large monitors.
+      const fitScale = Math.min(scaleX, scaleY, 2);
 
       setScale(fitScale);
       setCanvasSize({
@@ -446,7 +457,7 @@ export default function FaceCanvas({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
-      className="w-full flex justify-center"
+      className="w-full h-full flex items-center justify-center"
     >
       <div
         className="relative"

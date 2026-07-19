@@ -3,17 +3,28 @@
 import { m } from 'framer-motion';
 import { useI18n } from '@/lib/i18n';
 
-// Fixed, always-visible footer — no per-state hiding. On mobile, the docked
-// editing toolbar is `fixed` and may sit on top of it; that's fine, the
-// footer just stays where the normal document flow puts it.
-export default function AppFooter() {
+interface AppFooterProps {
+  // Editing state renders this at the bottom of a fixed h-dvh column with no
+  // page scroll, so it uses tighter spacing than the landing state's
+  // document-flow footer. Content is identical either way.
+  compact?: boolean;
+}
+
+// Always-visible footer — no per-state hiding of the element itself, just a
+// spacing variant. On mobile, the docked editing toolbar sits above it in
+// normal flow now (no longer `fixed`), so overlap is no longer a concern.
+export default function AppFooter({ compact = false }: AppFooterProps) {
   const { t } = useI18n();
   return (
     <m.footer
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.5 }}
-      className="mt-6 mb-4 text-center text-xs text-gray-500 dark:text-gray-500 px-4"
+      className={
+        compact
+          ? 'shrink-0 py-1.5 text-center text-[11px] text-gray-500 dark:text-gray-500 px-4'
+          : 'mt-6 mb-4 text-center text-xs text-gray-500 dark:text-gray-500 px-4'
+      }
     >
       <p>
         {t.footer.madeBy}{' '}
