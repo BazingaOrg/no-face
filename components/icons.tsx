@@ -134,6 +134,16 @@ export function Moon({ className, size = 20 }: IconProps) {
   );
 }
 
+export function Monitor({ className, size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} className={className} {...base}>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8" />
+      <path d="M12 16v4" />
+    </svg>
+  );
+}
+
 export function Upload({ className, size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} className={className} {...base}>

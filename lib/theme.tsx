@@ -23,7 +23,6 @@ interface ThemeContextValue {
   theme: ThemePreference;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: ThemePreference) => void;
-  toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -66,13 +65,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-  }, [resolvedTheme, setTheme]);
-
   const value = useMemo<ThemeContextValue>(
-    () => ({ theme, resolvedTheme, setTheme, toggleTheme }),
-    [theme, resolvedTheme, setTheme, toggleTheme]
+    () => ({ theme, resolvedTheme, setTheme }),
+    [theme, resolvedTheme, setTheme]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

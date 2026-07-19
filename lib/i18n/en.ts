@@ -125,6 +125,9 @@ export const en: typeof zh = {
     aria: 'Switch to Chinese',
   },
   themeToggle: {
-    aria: 'Toggle dark/light theme',
+    aria: 'Theme',
+    system: 'System',
+    light: 'Light',
+    dark: 'Dark',
   },
 };

@@ -123,6 +123,9 @@ export const zh = {
     aria: '切换到英文',
   },
   themeToggle: {
-    aria: '切换深色/浅色模式',
+    aria: '主题',
+    system: '系统',
+    light: '白天',
+    dark: '黑夜',
   },
 };

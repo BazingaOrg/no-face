@@ -3,15 +3,13 @@
 import { m, useReducedMotion } from 'framer-motion';
 import NextImage from 'next/image';
 import { useI18n } from '@/lib/i18n';
-import { useTheme } from '@/lib/theme';
-import { Sun, Moon } from '@/components/icons';
+import ThemeSwitch from '@/components/ThemeSwitch';
 
 // Single fixed-layout header, unchanged across empty/editing states — no more
 // full/compact toggle. Keeps the logo swing + shimmer title + theme/language
 // switches; the privacy badge/tagline ride along as a small subline.
 export default function AppHeader() {
   const { t, lang, setLang } = useI18n();
-  const { resolvedTheme, toggleTheme } = useTheme();
   const shouldReduceMotion = useReducedMotion();
 
   return (
@@ -49,25 +47,7 @@ export default function AppHeader() {
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <m.button
-          type="button"
-          onClick={toggleTheme}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="w-9 h-9 flex items-center justify-center rounded-full bg-white/80 dark:bg-slate-800/80 border border-gray-300 dark:border-slate-600 text-gray-600 dark:text-gray-300 shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors"
-          aria-label={t.themeToggle.aria}
-          title={t.themeToggle.aria}
-        >
-          <m.span
-            key={resolvedTheme}
-            initial={{ rotate: -90, opacity: 0 }}
-            animate={{ rotate: 0, opacity: 1 }}
-            transition={{ duration: 0.2 }}
-            className="flex items-center justify-center"
-          >
-            {resolvedTheme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-          </m.span>
-        </m.button>
+        <ThemeSwitch />
 
         <button
           type="button"
